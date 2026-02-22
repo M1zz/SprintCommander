@@ -111,6 +111,9 @@ struct AddProjectSheet: View {
                                 scanInfoBadge(label: "프레임워크", value: result.framework)
                                 scanInfoBadge(label: "파일", value: "\(result.totalFiles)개")
                                 scanInfoBadge(label: "코드 라인", value: formatNumber(result.totalLines))
+                                if !result.version.isEmpty {
+                                    scanInfoBadge(label: "버전", value: "v\(result.version)")
+                                }
                             }
                         }
                         .padding(12)
@@ -187,7 +190,8 @@ struct AddProjectSheet: View {
                         color: AppStore.palette[selectedColorIndex],
                         startWeek: store.projects.count % 10,
                         durationWeeks: 4,
-                        sourcePath: sourcePath
+                        sourcePath: sourcePath,
+                        version: scanResult?.version ?? ""
                     )
                     store.addProject(project)
                     store.addActivity(ActivityItem(

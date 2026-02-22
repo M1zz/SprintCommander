@@ -96,10 +96,6 @@ struct ProjectCard: View {
     let project: Project
     @State private var isHovered = false
 
-    private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Icon + Name
@@ -108,13 +104,15 @@ struct ProjectCard: View {
                     .font(.system(size: 22))
                 Spacer()
                 // Version badge
-                Text("v\(appVersion)")
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.5))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.white.opacity(0.08))
-                    .cornerRadius(4)
+                if !project.version.isEmpty {
+                    Text("v\(project.version)")
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.5))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.white.opacity(0.08))
+                        .cornerRadius(4)
+                }
             }
             .padding(.bottom, 10)
 
