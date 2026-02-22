@@ -135,6 +135,7 @@ struct SidebarNavItem: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
+            .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: 6)
                     .fill(isSelected ? Color(hex: "4FACFE").opacity(0.12) : Color.clear)

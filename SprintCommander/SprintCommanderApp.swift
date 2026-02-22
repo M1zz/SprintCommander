@@ -9,6 +9,7 @@ struct SprintCommanderApp: App {
             ContentView()
                 .environmentObject(store)
                 .frame(minWidth: 1200, minHeight: 780)
+                .onAppear { store.loadAndStartSync() }
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1440, height: 900)

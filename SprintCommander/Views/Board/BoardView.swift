@@ -13,7 +13,7 @@ struct BoardView: View {
             PageHeader(
                 title: "스프린트 보드",
                 subtitle: store.activeSprintNames.first ?? "스프린트를 추가해주세요",
-                primaryAction: "+ 태스크",
+                primaryAction: "태스크",
                 primaryIcon: "plus",
                 onPrimary: { showAddTask = true },
                 secondaryAction: "🔍 필터",

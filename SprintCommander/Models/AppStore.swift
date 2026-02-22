@@ -8,6 +8,10 @@ final class AppStore: ObservableObject {
     @Published var showNewSprintSheet: Bool = false
     @Published var showSearchOverlay: Bool = false
 
+    private let syncManager = CloudSyncManager()
+    private var autoSaveCancellable: AnyCancellable?
+    private var isRestoring = false
+
     // MARK: - Colors Palette
     static let palette: [Color] = [
         Color(hex: "4FACFE"), Color(hex: "34D399"), Color(hex: "A78BFA"),
@@ -109,6 +113,62 @@ final class AppStore: ObservableObject {
         }
         return result
     }
+
+    // MARK: - Sync
+
+    func snapshot() -> AppData {
+        AppData(
+            timestamp: Date(),
+            projects: projects,
+            kanbanTasks: kanbanTasks,
+            velocityData: velocityData,
+            activities: activities,
+            teamMembers: teamMembers,
+            burndownIdeal: burndownIdeal,
+            burndownActual: burndownActual
+        )
+    }
+
+    func restore(from data: AppData) {
+        isRestoring = true
+        projects = data.projects
+        kanbanTasks = data.kanbanTasks
+        velocityData = data.velocityData
+        activities = data.activities
+        teamMembers = data.teamMembers
+        burndownIdeal = data.burndownIdeal
+        burndownActual = data.burndownActual
+        isRestoring = false
+    }
+
+    func save() {
+        guard !isRestoring else { return }
+        syncManager.save(snapshot())
+    }
+
+    func loadAndStartSync() {
+        if let data = syncManager.load() {
+            restore(from: data)
+        }
+
+        // Auto-save on any data change
+        autoSaveCancellable = Publishers.MergeMany(
+            $projects.map { _ in () }.eraseToAnyPublisher(),
+            $kanbanTasks.map { _ in () }.eraseToAnyPublisher(),
+            $velocityData.map { _ in () }.eraseToAnyPublisher(),
+            $activities.map { _ in () }.eraseToAnyPublisher(),
+            $teamMembers.map { _ in () }.eraseToAnyPublisher(),
+            $burndownIdeal.map { _ in () }.eraseToAnyPublisher(),
+            $burndownActual.map { _ in () }.eraseToAnyPublisher()
+        )
+        .dropFirst(7) // skip initial values from restore
+        .sink { [weak self] in self?.save() }
+
+        // Monitor iCloud changes
+        syncManager.startMonitoring { [weak self] data in
+            self?.restore(from: data)
+        }
+    }
 }
 
 // MARK: - Color Hex Extension
@@ -127,5 +187,13 @@ extension Color {
             (a, r, g, b) = (255, 0, 0, 0)
         }
         self.init(.sRGB, red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255, opacity: Double(a) / 255)
+    }
+
+    func toHex() -> String {
+        guard let nsColor = NSColor(self).usingColorSpace(.sRGB) else { return "000000" }
+        let r = Int(round(nsColor.redComponent * 255))
+        let g = Int(round(nsColor.greenComponent * 255))
+        let b = Int(round(nsColor.blueComponent * 255))
+        return String(format: "%02X%02X%02X", r, g, b)
     }
 }

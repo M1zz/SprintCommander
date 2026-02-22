@@ -42,7 +42,7 @@ struct ProjectsView: View {
             PageHeader(
                 title: "프로젝트",
                 subtitle: "\(store.projects.count)개 프로젝트 관리",
-                primaryAction: "+ 새 프로젝트",
+                primaryAction: "새 프로젝트",
                 primaryIcon: "plus",
                 onPrimary: { showAddProject = true },
                 secondaryAction: sortLabel,

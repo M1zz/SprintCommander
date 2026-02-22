@@ -55,13 +55,9 @@ struct TitleBarView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Traffic lights area (space for native buttons)
-            HStack(spacing: 8) {
-                Circle().fill(Color(hex: "FF5F57")).frame(width: 12, height: 12)
-                Circle().fill(Color(hex: "FEBC2E")).frame(width: 12, height: 12)
-                Circle().fill(Color(hex: "28C840")).frame(width: 12, height: 12)
-            }
-            .padding(.leading, 20)
+            // Space for native traffic light buttons
+            Spacer()
+                .frame(width: 80)
 
             Spacer()
 

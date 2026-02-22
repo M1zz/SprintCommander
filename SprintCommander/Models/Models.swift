@@ -1,8 +1,26 @@
 import SwiftUI
 import Foundation
 
+// MARK: - Relative Path Helpers
+private enum PathHelper {
+    static let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+
+    static func toRelative(_ path: String) -> String {
+        guard !path.isEmpty else { return "" }
+        if path.hasPrefix(homeDir) {
+            return "~" + path.dropFirst(homeDir.count)
+        }
+        return path
+    }
+
+    static func toAbsolute(_ path: String) -> String {
+        guard path.hasPrefix("~") else { return path }
+        return homeDir + path.dropFirst(1)
+    }
+}
+
 // MARK: - Project
-struct Project: Identifiable, Hashable {
+struct Project: Identifiable, Hashable, Codable {
     let id: UUID
     var name: String
     var icon: String
@@ -14,8 +32,9 @@ struct Project: Identifiable, Hashable {
     var color: Color
     var startWeek: Int    // 0-based week offset for timeline
     var durationWeeks: Int
+    var sourcePath: String
 
-    init(id: UUID = UUID(), name: String, icon: String, desc: String, progress: Double, sprint: String, totalTasks: Int, doneTasks: Int, color: Color, startWeek: Int = 0, durationWeeks: Int = 4) {
+    init(id: UUID = UUID(), name: String, icon: String, desc: String, progress: Double, sprint: String, totalTasks: Int, doneTasks: Int, color: Color, startWeek: Int = 0, durationWeeks: Int = 4, sourcePath: String = "") {
         self.id = id
         self.name = name
         self.icon = icon
@@ -27,10 +46,51 @@ struct Project: Identifiable, Hashable {
         self.color = color
         self.startWeek = startWeek
         self.durationWeeks = durationWeeks
+        self.sourcePath = sourcePath
     }
 
     var progressPercent: String {
         "\(Int(progress))%"
+    }
+
+    // MARK: Codable
+    enum CodingKeys: String, CodingKey {
+        case id, name, icon, desc, progress, sprint, totalTasks, doneTasks
+        case colorHex, startWeek, durationWeeks, sourcePath
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(icon, forKey: .icon)
+        try c.encode(desc, forKey: .desc)
+        try c.encode(progress, forKey: .progress)
+        try c.encode(sprint, forKey: .sprint)
+        try c.encode(totalTasks, forKey: .totalTasks)
+        try c.encode(doneTasks, forKey: .doneTasks)
+        try c.encode(color.toHex(), forKey: .colorHex)
+        try c.encode(startWeek, forKey: .startWeek)
+        try c.encode(durationWeeks, forKey: .durationWeeks)
+        try c.encode(PathHelper.toRelative(sourcePath), forKey: .sourcePath)
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        icon = try c.decode(String.self, forKey: .icon)
+        desc = try c.decode(String.self, forKey: .desc)
+        progress = try c.decode(Double.self, forKey: .progress)
+        sprint = try c.decode(String.self, forKey: .sprint)
+        totalTasks = try c.decode(Int.self, forKey: .totalTasks)
+        doneTasks = try c.decode(Int.self, forKey: .doneTasks)
+        let hex = try c.decode(String.self, forKey: .colorHex)
+        color = Color(hex: hex)
+        startWeek = try c.decode(Int.self, forKey: .startWeek)
+        durationWeeks = try c.decode(Int.self, forKey: .durationWeeks)
+        let raw = try c.decode(String.self, forKey: .sourcePath)
+        sourcePath = PathHelper.toAbsolute(raw)
     }
 }
 
@@ -46,7 +106,7 @@ struct Sprint: Identifiable, Hashable {
 }
 
 // MARK: - Task
-struct TaskItem: Identifiable, Hashable {
+struct TaskItem: Identifiable, Hashable, Codable {
     let id: UUID
     var title: String
     var tags: [String]
@@ -67,7 +127,7 @@ struct TaskItem: Identifiable, Hashable {
         self.status = status
     }
 
-    enum Priority: String, CaseIterable {
+    enum Priority: String, CaseIterable, Codable {
         case high, medium, low
 
         var label: String {
@@ -93,7 +153,7 @@ struct TaskItem: Identifiable, Hashable {
         }
     }
 
-    enum TaskStatus: String, CaseIterable {
+    enum TaskStatus: String, CaseIterable, Codable {
         case backlog = "백로그"
         case todo = "할 일"
         case inProgress = "진행 중"
@@ -108,31 +168,105 @@ struct TaskItem: Identifiable, Hashable {
             }
         }
     }
+
+    // MARK: Codable
+    enum CodingKeys: String, CodingKey {
+        case id, title, tags, priority, storyPoints, assignee, assigneeColorHex, status
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(title, forKey: .title)
+        try c.encode(tags, forKey: .tags)
+        try c.encode(priority, forKey: .priority)
+        try c.encode(storyPoints, forKey: .storyPoints)
+        try c.encode(assignee, forKey: .assignee)
+        try c.encode(assigneeColor.toHex(), forKey: .assigneeColorHex)
+        try c.encode(status, forKey: .status)
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        tags = try c.decode([String].self, forKey: .tags)
+        priority = try c.decode(Priority.self, forKey: .priority)
+        storyPoints = try c.decode(Int.self, forKey: .storyPoints)
+        assignee = try c.decode(String.self, forKey: .assignee)
+        let hex = try c.decode(String.self, forKey: .assigneeColorHex)
+        assigneeColor = Color(hex: hex)
+        status = try c.decode(TaskStatus.self, forKey: .status)
+    }
 }
 
 // MARK: - Velocity
-struct VelocityPoint: Identifiable {
-    let id = UUID()
+struct VelocityPoint: Identifiable, Codable {
+    let id: UUID
     let sprint: String
     let planned: Int
     let completed: Int
+
+    init(id: UUID = UUID(), sprint: String, planned: Int, completed: Int) {
+        self.id = id
+        self.sprint = sprint
+        self.planned = planned
+        self.completed = completed
+    }
 }
 
 // MARK: - Activity
-struct ActivityItem: Identifiable {
-    let id = UUID()
+struct ActivityItem: Identifiable, Codable {
+    let id: UUID
     let icon: String
     let text: String
     let highlightedText: String
     let time: String
+
+    init(id: UUID = UUID(), icon: String, text: String, highlightedText: String, time: String) {
+        self.id = id
+        self.icon = icon
+        self.text = text
+        self.highlightedText = highlightedText
+        self.time = time
+    }
 }
 
 // MARK: - Team Member
-struct TeamMember: Identifiable {
-    let id = UUID()
+struct TeamMember: Identifiable, Codable {
+    let id: UUID
     let name: String
     let color: Color
     let workload: Double // 0-100
+
+    init(id: UUID = UUID(), name: String, color: Color, workload: Double) {
+        self.id = id
+        self.name = name
+        self.color = color
+        self.workload = workload
+    }
+
+    // MARK: Codable
+    enum CodingKeys: String, CodingKey {
+        case id, name, colorHex, workload
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(color.toHex(), forKey: .colorHex)
+        try c.encode(workload, forKey: .workload)
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        let hex = try c.decode(String.self, forKey: .colorHex)
+        color = Color(hex: hex)
+        workload = try c.decode(Double.self, forKey: .workload)
+    }
 }
 
 // MARK: - Navigation

@@ -11,7 +11,7 @@ struct DashboardView: View {
             PageHeader(
                 title: "Sprint Commander",
                 subtitle: "\(store.projects.count)개 프로젝트 · \(store.activeSprintNames.count)개 활성 스프린트",
-                primaryAction: "+ 새 프로젝트",
+                primaryAction: "새 프로젝트",
                 primaryIcon: "plus",
                 onPrimary: { showAddProject = true },
                 secondaryAction: "⚙️ 설정"
@@ -33,7 +33,7 @@ struct DashboardView: View {
                         PrimaryButton(title: "샘플 데이터 로드", icon: "square.and.arrow.down") {
                             SampleDataProvider.loadSampleData(into: store)
                         }
-                        GhostButton(title: "+ 새 프로젝트") {
+                        GhostButton(title: "새 프로젝트") {
                             showAddProject = true
                         }
                     }
