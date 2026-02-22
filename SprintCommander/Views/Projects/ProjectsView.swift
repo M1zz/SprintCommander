@@ -96,6 +96,10 @@ struct ProjectCard: View {
     let project: Project
     @State private var isHovered = false
 
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Icon + Name
@@ -103,12 +107,14 @@ struct ProjectCard: View {
                 Text(project.icon)
                     .font(.system(size: 22))
                 Spacer()
-                // Status badge
-                Circle()
-                    .fill(project.progress >= 80 ? Color(hex: "34D399") :
-                          project.progress >= 50 ? Color(hex: "FBBF24") :
-                          Color(hex: "EF4444"))
-                    .frame(width: 8, height: 8)
+                // Version badge
+                Text("v\(appVersion)")
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.5))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.white.opacity(0.08))
+                    .cornerRadius(4)
             }
             .padding(.bottom, 10)
 
@@ -123,19 +129,12 @@ struct ProjectCard: View {
                 .lineLimit(1)
                 .padding(.bottom, 14)
 
-            // Progress bar
-            ProgressBarView(progress: project.progress, color: project.color)
-                .padding(.bottom, 8)
-
             // Stats
             HStack {
                 Text("\(project.doneTasks)/\(project.totalTasks) 태스크")
                     .font(.system(size: 10))
                     .foregroundColor(.white.opacity(0.3))
                 Spacer()
-                Text(project.progressPercent)
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundColor(project.color)
             }
             .padding(.bottom, 8)
 

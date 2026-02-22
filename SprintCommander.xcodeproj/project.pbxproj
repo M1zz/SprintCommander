@@ -15,9 +15,6 @@
 		8B094D7BEE7B43B7AB49C588 /* SprintCommanderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAA80D2DB4304A29BBDF6D8B /* SprintCommanderApp.swift */; };
 		8FCEFFCDDEBD47DE8A1F341C /* TimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07DFB398810849C99C31ABAA /* TimelineView.swift */; };
 		9BD36864DFE049BA941B32F2 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0B053573FE4BE3B8D8A88B /* SidebarView.swift */; };
-		B5013B0D5A9041499EFC53DF /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30CD9741F3A4CB4827E742C /* AnalyticsView.swift */; };
-		BE82F823BD724A8986CD8FC9 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ECAE577EA0C4D98B1FFE925 /* AppStore.swift */; };
-		FF5A9D08DC9840C393263976 /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 599AC764F7A04E63B3691653 /* BoardView.swift */; };
 		AA0001000000000000000001 /* AddProjectSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001000000000000000001 /* AddProjectSheet.swift */; };
 		AA0001000000000000000002 /* AddTaskSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001000000000000000002 /* AddTaskSheet.swift */; };
 		AA0001000000000000000003 /* TaskDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001000000000000000003 /* TaskDetailSheet.swift */; };
@@ -27,6 +24,9 @@
 		AA0001000000000000000007 /* ProjectScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001000000000000000007 /* ProjectScanner.swift */; };
 		AA0001000000000000000008 /* AppData.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001000000000000000008 /* AppData.swift */; };
 		AA0001000000000000000009 /* CloudSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001000000000000000009 /* CloudSyncManager.swift */; };
+		B5013B0D5A9041499EFC53DF /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30CD9741F3A4CB4827E742C /* AnalyticsView.swift */; };
+		BE82F823BD724A8986CD8FC9 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ECAE577EA0C4D98B1FFE925 /* AppStore.swift */; };
+		FF5A9D08DC9840C393263976 /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 599AC764F7A04E63B3691653 /* BoardView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,9 +39,6 @@
 		7E363FED48BC4C3791773559 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		A29ED5FCBE0C4A85A5814385 /* ProjectsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectsView.swift; sourceTree = "<group>"; };
 		B132E4C9FEBB4FF6A99D3A89 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		C30CD9741F3A4CB4827E742C /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
-		E7F5D979E8C444A3972E85EC /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedComponents.swift; sourceTree = "<group>"; };
-		FAA80D2DB4304A29BBDF6D8B /* SprintCommanderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SprintCommanderApp.swift; sourceTree = "<group>"; };
 		BB0001000000000000000001 /* AddProjectSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddProjectSheet.swift; sourceTree = "<group>"; };
 		BB0001000000000000000002 /* AddTaskSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskSheet.swift; sourceTree = "<group>"; };
 		BB0001000000000000000003 /* TaskDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailSheet.swift; sourceTree = "<group>"; };
@@ -52,6 +49,9 @@
 		BB0001000000000000000008 /* AppData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppData.swift; sourceTree = "<group>"; };
 		BB0001000000000000000009 /* CloudSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncManager.swift; sourceTree = "<group>"; };
 		BB000100000000000000000A /* SprintCommander.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SprintCommander.entitlements; sourceTree = "<group>"; };
+		C30CD9741F3A4CB4827E742C /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
+		E7F5D979E8C444A3972E85EC /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedComponents.swift; sourceTree = "<group>"; };
+		FAA80D2DB4304A29BBDF6D8B /* SprintCommanderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SprintCommanderApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -159,23 +159,6 @@
 			path = Board;
 			sourceTree = "<group>";
 		};
-		E5F3C13E416546459BD38A61 /* Timeline */ = {
-			isa = PBXGroup;
-			children = (
-				07DFB398810849C99C31ABAA /* TimelineView.swift */,
-			);
-			path = Timeline;
-			sourceTree = "<group>";
-		};
-		CC0001000000000000000002 /* Services */ = {
-			isa = PBXGroup;
-			children = (
-				BB0001000000000000000007 /* ProjectScanner.swift */,
-				BB0001000000000000000009 /* CloudSyncManager.swift */,
-			);
-			path = Services;
-			sourceTree = "<group>";
-		};
 		CC0001000000000000000001 /* Sheets */ = {
 			isa = PBXGroup;
 			children = (
@@ -187,6 +170,23 @@
 				BB0001000000000000000006 /* SampleDataProvider.swift */,
 			);
 			path = Sheets;
+			sourceTree = "<group>";
+		};
+		CC0001000000000000000002 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				BB0001000000000000000007 /* ProjectScanner.swift */,
+				BB0001000000000000000009 /* CloudSyncManager.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		E5F3C13E416546459BD38A61 /* Timeline */ = {
+			isa = PBXGroup;
+			children = (
+				07DFB398810849C99C31ABAA /* TimelineView.swift */,
+			);
+			path = Timeline;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -293,7 +293,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = SprintCommander/SprintCommander.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -304,6 +304,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leeo.SprintCommander;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -314,7 +315,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = SprintCommander/SprintCommander.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -325,6 +326,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leeo.SprintCommander;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
