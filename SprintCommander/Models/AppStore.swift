@@ -169,6 +169,11 @@ final class AppStore: ObservableObject {
             self?.restore(from: data)
         }
     }
+
+    func refreshFromCloud() {
+        // Trigger a fresh fetch from CloudKit
+        _ = syncManager.load()
+    }
 }
 
 // MARK: - Color Hex Extension
