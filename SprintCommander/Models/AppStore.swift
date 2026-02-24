@@ -13,6 +13,8 @@ final class AppStore: ObservableObject {
     private var autoSaveCancellable: AnyCancellable?
     private var pollTimer: AnyCancellable?
     private var isRestoring = false
+    /// restore 후 잠시 동안 auto-save를 억제 (Combine 비동기 이벤트 방어)
+    private var restoreCooldownUntil: Date = .distantPast
 
     // MARK: - Colors Palette
     static let palette: [Color] = [
@@ -159,10 +161,17 @@ final class AppStore: ObservableObject {
         burndownIdeal = data.burndownIdeal
         burndownActual = data.burndownActual
         isRestoring = false
+        // restore 후 1초간 auto-save 억제 (Combine 비동기 이벤트 방어)
+        restoreCooldownUntil = Date().addingTimeInterval(1.0)
+        print("[AppStore] 🔄 restore 완료 (projects: \(projects.count), cooldown 1초)")
     }
 
     func save() {
         guard !isRestoring else { return }
+        guard Date() > restoreCooldownUntil else {
+            print("[AppStore] ⏭️ restore 쿨다운 중 → 저장 스킵")
+            return
+        }
         print("[AppStore] 💾 데이터 변경 감지 → 저장 (projects: \(projects.count), tasks: \(kanbanTasks.count))")
         syncManager.save(snapshot())
         fileManager.saveAll(projects: projects, tasks: kanbanTasks)

@@ -43,6 +43,9 @@ final class CloudSyncManager {
     /// syncQ 위에서만 접근해야 함.
     private var serverRecord: CKRecord?
 
+    /// 마지막으로 서버에서 받아 적용한 데이터의 타임스탬프
+    private var lastAppliedServerTimestamp: Date?
+
     /// 데이터가 변경됐을 때 호출되는 콜백 (메인 스레드 보장)
     var onChange: ((AppData) -> Void)?
 
@@ -105,7 +108,10 @@ final class CloudSyncManager {
 
     /// 명시적 동기화 요청 (scenePhase active, 수동 새로고침).
     func fetchLatest() {
-        fetchCloudAndApply(localTimestamp: loadLocal()?.timestamp)
+        // 로컬 파일 타임스탬프 대신, 마지막 적용된 서버 타임스탬프로 비교
+        // (auto-save가 로컬 파일을 새 타임스탬프로 덮어쓰는 문제 방지)
+        let compareTS = lastAppliedServerTimestamp ?? loadLocal()?.timestamp
+        fetchCloudAndApply(localTimestamp: compareTS)
     }
 
     // MARK: - 모니터링
@@ -222,6 +228,7 @@ final class CloudSyncManager {
             }
 
             print("[CloudSync] ✅ 서버 데이터 적용 (timestamp: \(remote.timestamp))")
+            self.lastAppliedServerTimestamp = remote.timestamp
             self.saveLocal(remote)
             DispatchQueue.main.async { self.onChange?(remote) }
         }
@@ -266,7 +273,10 @@ final class CloudSyncManager {
         op.perRecordSaveBlock = { [weak self] _, result in
             switch result {
             case .success(let saved):
-                self?.syncQ.async { self?.serverRecord = saved }
+                self?.syncQ.async {
+                    self?.serverRecord = saved
+                    self?.lastAppliedServerTimestamp = data.timestamp
+                }
                 print("[CloudSync] ✅ 업로드 성공 (timestamp: \(data.timestamp))")
             case .failure(let error):
                 print("[CloudSync] ❌ 레코드 저장 실패: \(error.localizedDescription)")
