@@ -11,6 +11,7 @@ final class AppStore: ObservableObject {
     private let syncManager = CloudSyncManager()
     private let fileManager = ProjectFileManager()
     private var autoSaveCancellable: AnyCancellable?
+    private var pollTimer: AnyCancellable?
     private var isRestoring = false
 
     // MARK: - Colors Palette
@@ -162,6 +163,7 @@ final class AppStore: ObservableObject {
 
     func save() {
         guard !isRestoring else { return }
+        print("[AppStore] 💾 데이터 변경 감지 → 저장 (projects: \(projects.count), tasks: \(kanbanTasks.count))")
         syncManager.save(snapshot())
         fileManager.saveAll(projects: projects, tasks: kanbanTasks)
     }
@@ -195,6 +197,13 @@ final class AppStore: ObservableObject {
         syncManager.startMonitoring { [weak self] data in
             self?.restore(from: data)
         }
+
+        // 주기적 폴링 (15초마다) - push가 안 올 때 fallback
+        pollTimer = Timer.publish(every: 15, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.refreshFromCloud()
+            }
     }
 
     /// 외부 도구가 tasks.json을 수정했을 때 해당 프로젝트의 태스크만 교체

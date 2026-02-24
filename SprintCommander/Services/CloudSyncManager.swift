@@ -141,10 +141,8 @@ final class CloudSyncManager {
     // MARK: - CKDatabaseSubscription (서버 변경 시 silent push)
 
     private func subscribeToChanges() {
-        // 이미 구독했는지 확인 (앱 재실행마다 중복 등록 방지)
-        let key = "CloudKit_subscriptionSaved"
-        guard !UserDefaults.standard.bool(forKey: key) else { return }
-
+        // 매번 구독을 재등록 (기존 구독 삭제 후 재생성)
+        // CloudKit이 중복 subscriptionID를 자동 처리하므로 안전
         let subscription = CKDatabaseSubscription(subscriptionID: Self.subscriptionID)
 
         let info = CKSubscription.NotificationInfo()
@@ -159,10 +157,9 @@ final class CloudSyncManager {
         op.modifySubscriptionsResultBlock = { result in
             switch result {
             case .success:
-                UserDefaults.standard.set(true, forKey: key)
-                print("[CloudSync] 구독 등록 완료")
+                print("[CloudSync] ✅ 구독 등록/갱신 완료")
             case .failure(let error):
-                print("[CloudSync] 구독 등록 실패: \(error.localizedDescription)")
+                print("[CloudSync] ❌ 구독 등록 실패: \(error.localizedDescription)")
             }
         }
         db.add(op)
@@ -194,11 +191,17 @@ final class CloudSyncManager {
     // MARK: - CloudKit Fetch
 
     private func fetchCloudAndApply(localTimestamp: Date?) {
+        print("[CloudSync] 🔄 서버에서 데이터 fetch 시작...")
         db.fetch(withRecordID: CK.recordID) { [weak self] record, error in
             guard let self else { return }
 
             if let error = error as? CKError, error.code == .unknownItem {
-                // 아직 한 번도 저장한 적 없음 – 정상
+                print("[CloudSync] 서버에 데이터 없음 (최초 상태)")
+                return
+            }
+
+            if let error = error {
+                print("[CloudSync] ❌ fetch 오류: \(error.localizedDescription)")
                 return
             }
 
@@ -207,11 +210,18 @@ final class CloudSyncManager {
             // 서버 레코드 캐싱 (다음 저장 시 fetch 생략)
             self.syncQ.async { self.serverRecord = record }
 
-            guard let remote = self.decodeRecord(record) else { return }
+            guard let remote = self.decodeRecord(record) else {
+                print("[CloudSync] ❌ 서버 데이터 디코딩 실패")
+                return
+            }
 
             // 로컬보다 새로운 경우만 적용
-            if let localTS = localTimestamp, remote.timestamp <= localTS { return }
+            if let localTS = localTimestamp, remote.timestamp <= localTS {
+                print("[CloudSync] ⏭️ 로컬이 최신 (local: \(localTS), remote: \(remote.timestamp))")
+                return
+            }
 
+            print("[CloudSync] ✅ 서버 데이터 적용 (timestamp: \(remote.timestamp))")
             self.saveLocal(remote)
             DispatchQueue.main.async { self.onChange?(remote) }
         }
@@ -223,32 +233,53 @@ final class CloudSyncManager {
         syncQ.async { [weak self] in
             guard let self else { return }
 
-            // 캐시된 레코드가 있으면 재사용 (서버의 change tag를 유지해야 충돌 감지 가능)
-            let record = self.serverRecord
-                ?? CKRecord(recordType: CK.recordType, recordID: CK.recordID)
-
-            self.encodeIntoRecord(data, record: record)
-
-            // ifServerRecordUnchanged: 서버가 바뀌면 serverRecordChanged 에러 반환
-            let op = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
-            op.savePolicy = .ifServerRecordUnchanged
-            op.qualityOfService = .utility
-
-            // 저장 성공 시 캐시 갱신
-            op.perRecordSaveBlock = { [weak self] _, result in
-                if case .success(let saved) = result {
-                    self?.syncQ.async { self?.serverRecord = saved }
+            if self.serverRecord != nil {
+                // 캐시된 레코드가 있으면 재사용 (change tag 유지)
+                let record = self.serverRecord!
+                self.encodeIntoRecord(data, record: record)
+                self.performUpload(record: record, data: data, retryCount: retryCount)
+            } else {
+                // 캐시 없음 → 먼저 서버에서 기존 레코드를 fetch 후 업데이트
+                self.db.fetch(withRecordID: CK.recordID) { [weak self] record, error in
+                    guard let self else { return }
+                    self.syncQ.async {
+                        let rec: CKRecord
+                        if let existing = record {
+                            self.serverRecord = existing
+                            rec = existing
+                        } else {
+                            rec = CKRecord(recordType: CK.recordType, recordID: CK.recordID)
+                        }
+                        self.encodeIntoRecord(data, record: rec)
+                        self.performUpload(record: rec, data: data, retryCount: retryCount)
+                    }
                 }
             }
-
-            op.modifyRecordsResultBlock = { [weak self] result in
-                if case .failure(let error) = result {
-                    self?.handleUploadError(error, data: data, retryCount: retryCount)
-                }
-            }
-
-            self.db.add(op)
         }
+    }
+
+    private func performUpload(record: CKRecord, data: AppData, retryCount: Int) {
+        let op = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
+        op.savePolicy = .ifServerRecordUnchanged
+        op.qualityOfService = .utility
+
+        op.perRecordSaveBlock = { [weak self] _, result in
+            switch result {
+            case .success(let saved):
+                self?.syncQ.async { self?.serverRecord = saved }
+                print("[CloudSync] ✅ 업로드 성공 (timestamp: \(data.timestamp))")
+            case .failure(let error):
+                print("[CloudSync] ❌ 레코드 저장 실패: \(error.localizedDescription)")
+            }
+        }
+
+        op.modifyRecordsResultBlock = { [weak self] result in
+            if case .failure(let error) = result {
+                self?.handleUploadError(error, data: data, retryCount: retryCount)
+            }
+        }
+
+        self.db.add(op)
     }
 
     private func handleUploadError(_ error: Error, data: AppData, retryCount: Int) {
