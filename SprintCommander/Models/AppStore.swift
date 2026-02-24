@@ -171,8 +171,7 @@ final class AppStore: ObservableObject {
     }
 
     func refreshFromCloud() {
-        // Trigger a fresh fetch from CloudKit
-        _ = syncManager.load()
+        syncManager.fetchLatest()
     }
 }
 
