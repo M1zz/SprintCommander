@@ -151,6 +151,15 @@ struct TimelineRow: View {
                     .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.6))
                     .lineLimit(1)
+                if !project.version.isEmpty {
+                    Text("v\(project.version)")
+                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                        .foregroundColor(project.color.opacity(0.8))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(project.color.opacity(0.1))
+                        .cornerRadius(3)
+                }
             }
             .frame(width: 180, alignment: .leading)
 

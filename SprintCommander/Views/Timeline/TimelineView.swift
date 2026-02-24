@@ -20,59 +20,76 @@ struct TimelineView: View {
                 selectedTab: $viewMode
             )
 
-            FullTimelineView(projects: store.projects, viewMode: viewMode)
+            FullTimelineView(projects: store.projects, viewMode: viewMode) { id, newStart in
+                store.updateProjectSchedule(id: id, startWeek: newStart)
+            }
         }
     }
 }
 
+// MARK: - Month definition (label + weeks in that month)
+
+struct MonthColumn: Identifiable {
+    let id = UUID()
+    let label: String
+    let weeks: Int
+}
+
+func monthColumns(for viewMode: Int) -> [MonthColumn] {
+    switch viewMode {
+    case 0: // 월간 (6개월)
+        return [
+            MonthColumn(label: "1월", weeks: 4),
+            MonthColumn(label: "2월", weeks: 4),
+            MonthColumn(label: "3월", weeks: 5),
+            MonthColumn(label: "4월", weeks: 4),
+            MonthColumn(label: "5월", weeks: 4),
+            MonthColumn(label: "6월", weeks: 5),
+        ]
+    case 1: // 분기 (4분기)
+        return [
+            MonthColumn(label: "Q1", weeks: 13),
+            MonthColumn(label: "Q2", weeks: 13),
+            MonthColumn(label: "Q3", weeks: 13),
+            MonthColumn(label: "Q4", weeks: 13),
+        ]
+    default: // 연간 (12개월)
+        let labels = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"]
+        let weeksPerMonth = [5, 4, 4, 4, 5, 4, 4, 5, 4, 4, 5, 4]
+        return zip(labels, weeksPerMonth).map { MonthColumn(label: $0, weeks: $1) }
+    }
+}
+
+// MARK: - FullTimelineView
+
 struct FullTimelineView: View {
     let projects: [Project]
     let viewMode: Int
+    var onMoveProject: (UUID, Int) -> Void = { _, _ in }
 
-    var months: [String] {
-        switch viewMode {
-        case 0: return ["1월", "2월", "3월", "4월", "5월", "6월"]
-        case 1: return ["Q1", "Q2", "Q3", "Q4"]
-        default: return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        }
-    }
-
-    var totalWeeks: Int {
-        switch viewMode {
-        case 0: return 26
-        case 1: return 52
-        default: return 52
-        }
-    }
+    private var columns: [MonthColumn] { monthColumns(for: viewMode) }
+    private var totalWeeks: Int { columns.reduce(0) { $0 + $1.weeks } }
 
     var body: some View {
         CardContainer {
             VStack(spacing: 0) {
-                // Header
-                HStack(spacing: 0) {
-                    Text("프로젝트")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white.opacity(0.3))
-                        .frame(width: 200, alignment: .leading)
-
-                    HStack(spacing: 0) {
-                        ForEach(months.indices, id: \.self) { i in
-                            Text(months[i])
-                                .font(.system(size: 11, weight: i == 1 ? .semibold : .regular))
-                                .foregroundColor(i == 1 ? Color(hex: "4FACFE") : .white.opacity(0.3))
-                                .frame(maxWidth: .infinity)
-                        }
-                    }
-                }
-                .padding(.bottom, 12)
+                // Two-row header: month labels + week ticks
+                TimelineHeader(columns: columns, totalWeeks: totalWeeks)
 
                 Divider().background(Color.white.opacity(0.06))
 
-                // All project rows
+                // Project rows with week gridlines
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(projects) { project in
-                            FullTimelineRow(project: project, totalWeeks: totalWeeks)
+                            FullTimelineRow(
+                                project: project,
+                                totalWeeks: totalWeeks,
+                                columns: columns,
+                                onMove: { newStart in
+                                    onMoveProject(project.id, newStart)
+                                }
+                            )
                         }
                     }
                 }
@@ -94,10 +111,112 @@ struct FullTimelineView: View {
     }
 }
 
+// MARK: - Timeline Header
+
+private struct TimelineHeader: View {
+    let columns: [MonthColumn]
+    let totalWeeks: Int
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Row 1: Month labels
+            HStack(spacing: 0) {
+                Text("프로젝트")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.3))
+                    .frame(width: 200, alignment: .leading)
+
+                GeometryReader { geo in
+                    let weekWidth = geo.size.width / CGFloat(totalWeeks)
+                    HStack(spacing: 0) {
+                        ForEach(Array(columns.enumerated()), id: \.offset) { i, col in
+                            Text(col.label)
+                                .font(.system(size: 11, weight: i == 1 ? .semibold : .regular))
+                                .foregroundColor(i == 1 ? Color(hex: "4FACFE") : .white.opacity(0.3))
+                                .frame(width: weekWidth * CGFloat(col.weeks), alignment: .center)
+                        }
+                    }
+                }
+            }
+            .frame(height: 20)
+
+            // Row 2: Week tick marks
+            HStack(spacing: 0) {
+                Color.clear.frame(width: 200)
+
+                GeometryReader { geo in
+                    let weekWidth = geo.size.width / CGFloat(totalWeeks)
+                    ZStack(alignment: .leading) {
+                        // Week numbers inside each month
+                        var weekOffset = 0
+                        ForEach(Array(columns.enumerated()), id: \.offset) { _, col in
+                            let start = weekOffset
+                            let _ = (weekOffset += col.weeks)
+                            ForEach(0..<col.weeks, id: \.self) { w in
+                                let x = CGFloat(start + w) * weekWidth
+                                Text("\(w + 1)")
+                                    .font(.system(size: 8, weight: .regular, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.15))
+                                    .frame(width: weekWidth)
+                                    .position(x: x + weekWidth / 2, y: 8)
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(height: 16)
+        }
+        .padding(.bottom, 4)
+    }
+}
+
+// MARK: - Week gridlines overlay
+
+private struct WeekGridOverlay: View {
+    let totalWeeks: Int
+    let columns: [MonthColumn]
+
+    var body: some View {
+        GeometryReader { geo in
+            let weekWidth = geo.size.width / CGFloat(totalWeeks)
+
+            // Month boundary lines (stronger)
+            var cumulativeWeeks = 0
+            ForEach(Array(columns.dropLast().enumerated()), id: \.offset) { _, col in
+                let _ = (cumulativeWeeks += col.weeks)
+                let x = CGFloat(cumulativeWeeks) * weekWidth
+                Rectangle()
+                    .fill(Color.white.opacity(0.06))
+                    .frame(width: 1)
+                    .position(x: x, y: geo.size.height / 2)
+                    .frame(height: geo.size.height)
+            }
+
+            // Individual week lines (subtle)
+            ForEach(1..<totalWeeks, id: \.self) { week in
+                let x = CGFloat(week) * weekWidth
+                Rectangle()
+                    .fill(Color.white.opacity(0.025))
+                    .frame(width: 1)
+                    .position(x: x, y: geo.size.height / 2)
+                    .frame(height: geo.size.height)
+            }
+        }
+    }
+}
+
+// MARK: - FullTimelineRow
+
 struct FullTimelineRow: View {
     let project: Project
     let totalWeeks: Int
+    let columns: [MonthColumn]
+    var onMove: (Int) -> Void = { _ in }
+
     @State private var isHovered = false
+    @State private var isDragging = false
+    @State private var dragOffsetX: CGFloat = 0
+    @State private var previewWeek: Int? = nil
 
     var body: some View {
         HStack(spacing: 0) {
@@ -112,6 +231,8 @@ struct FullTimelineRow: View {
                     .foregroundColor(isHovered ? .white : .white.opacity(0.6))
                     .lineLimit(1)
 
+                VersionBadge(version: project.version, color: project.color)
+
                 Spacer()
 
                 Text(project.progressPercent)
@@ -121,16 +242,28 @@ struct FullTimelineRow: View {
             .frame(width: 200)
             .padding(.trailing, 12)
 
-            // Gantt bar
+            // Gantt bar area
             GeometryReader { geo in
-                let barStart = CGFloat(project.startWeek) / CGFloat(totalWeeks) * geo.size.width
-                let barWidth = max(CGFloat(project.durationWeeks) / CGFloat(totalWeeks) * geo.size.width, 36)
+                let weekWidth = geo.size.width / CGFloat(totalWeeks)
+                let barStart = CGFloat(project.startWeek) * weekWidth
+                let barWidth = max(CGFloat(project.durationWeeks) * weekWidth, 36)
 
                 ZStack(alignment: .leading) {
-                    // Bar
+                    // Week gridlines
+                    WeekGridOverlay(totalWeeks: totalWeeks, columns: columns)
+
+                    // Snap preview ghost (shows where bar will land)
+                    if isDragging, let pw = previewWeek, pw != project.startWeek {
+                        RoundedRectangle(cornerRadius: 6)
+                            .strokeBorder(project.color.opacity(0.3), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                            .frame(width: barWidth, height: 22)
+                            .offset(x: CGFloat(pw) * weekWidth)
+                    }
+
+                    // Draggable bar
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(project.color.opacity(isHovered ? 0.9 : 0.7))
-                        .frame(width: barWidth, height: isHovered ? 26 : 22)
+                        .fill(project.color.opacity(isDragging ? 1.0 : (isHovered ? 0.9 : 0.7)))
+                        .frame(width: barWidth, height: isDragging ? 28 : (isHovered ? 26 : 22))
                         .overlay(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 6)
                                 .fill(Color.white.opacity(0.2))
@@ -145,15 +278,49 @@ struct FullTimelineRow: View {
                                         .font(.system(size: 9))
                                         .opacity(0.7)
                                 }
+                                if isDragging, let pw = previewWeek {
+                                    Text("W\(pw + 1)")
+                                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(Color.black.opacity(0.3))
+                                        .cornerRadius(3)
+                                }
                             }
                             .foregroundColor(.white)
                         }
-                        .offset(x: barStart)
+                        .shadow(color: isDragging ? project.color.opacity(0.4) : .clear, radius: 8, y: 2)
+                        .offset(x: barStart + dragOffsetX)
+                        .gesture(
+                            DragGesture(minimumDistance: 4)
+                                .onChanged { value in
+                                    isDragging = true
+                                    // Snap to nearest week while dragging
+                                    let weeksMoved = Int(round(value.translation.width / weekWidth))
+                                    let snapped = max(0, min(project.startWeek + weeksMoved, totalWeeks - project.durationWeeks))
+                                    let snappedOffset = CGFloat(snapped - project.startWeek) * weekWidth
+                                    dragOffsetX = snappedOffset
+                                    previewWeek = snapped
+                                }
+                                .onEnded { _ in
+                                    isDragging = false
+                                    let newStart = previewWeek ?? project.startWeek
+
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        dragOffsetX = 0
+                                        previewWeek = nil
+                                    }
+
+                                    if newStart != project.startWeek {
+                                        onMove(newStart)
+                                    }
+                                }
+                        )
                         .animation(.easeOut(duration: 0.15), value: isHovered)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(height: 26)
+            .frame(height: 28)
         }
         .padding(.vertical, 7)
         .background(isHovered ? Color.white.opacity(0.02) : Color.clear)

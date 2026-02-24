@@ -103,16 +103,7 @@ struct ProjectCard: View {
                 Text(project.icon)
                     .font(.system(size: 22))
                 Spacer()
-                // Version badge
-                if !project.version.isEmpty {
-                    Text("v\(project.version)")
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.5))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.08))
-                        .cornerRadius(4)
-                }
+                VersionBadge(version: project.version, color: project.color)
             }
             .padding(.bottom, 10)
 

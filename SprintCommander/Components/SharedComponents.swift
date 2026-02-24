@@ -287,6 +287,30 @@ struct FormPicker<T: Hashable>: View {
     }
 }
 
+// MARK: - Version Badge
+struct VersionBadge: View {
+    let version: String
+    var color: Color = Color(hex: "4FACFE")
+
+    var body: some View {
+        if !version.isEmpty {
+            Text("v\(version)")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundColor(color)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(color.opacity(0.12))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(color.opacity(0.25), lineWidth: 1)
+                )
+        }
+    }
+}
+
 // MARK: - Tag Badge
 struct TagBadge: View {
     let text: String

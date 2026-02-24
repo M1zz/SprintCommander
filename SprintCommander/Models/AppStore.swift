@@ -9,6 +9,7 @@ final class AppStore: ObservableObject {
     @Published var showSearchOverlay: Bool = false
 
     private let syncManager = CloudSyncManager()
+    private let fileManager = ProjectFileManager()
     private var autoSaveCancellable: AnyCancellable?
     private var isRestoring = false
 
@@ -49,6 +50,14 @@ final class AppStore: ObservableObject {
         kanbanTasks.filter { $0.status == status }
     }
 
+    func tasks(for projectId: UUID) -> [TaskItem] {
+        kanbanTasks.filter { $0.projectId == projectId }
+    }
+
+    func tasks(for projectId: UUID, status: TaskItem.TaskStatus) -> [TaskItem] {
+        kanbanTasks.filter { $0.projectId == projectId && $0.status == status }
+    }
+
     func totalSP(for status: TaskItem.TaskStatus) -> Int {
         tasks(for: status).reduce(0) { $0 + $1.storyPoints }
     }
@@ -67,6 +76,7 @@ final class AppStore: ObservableObject {
     // MARK: - 데이터 추가 헬퍼
     func addProject(_ project: Project) {
         projects.append(project)
+        fileManager.startWatching(project: project)
     }
 
     func addTask(_ task: TaskItem) {
@@ -100,6 +110,15 @@ final class AppStore: ObservableObject {
 
     func deleteProject(id: UUID) {
         projects.removeAll { $0.id == id }
+    }
+
+    func updateProjectSchedule(id: UUID, startWeek: Int, durationWeeks: Int? = nil) {
+        if let idx = projects.firstIndex(where: { $0.id == id }) {
+            projects[idx].startWeek = startWeek
+            if let dur = durationWeeks {
+                projects[idx].durationWeeks = dur
+            }
+        }
     }
 
     // MARK: - 필터링
@@ -144,12 +163,20 @@ final class AppStore: ObservableObject {
     func save() {
         guard !isRestoring else { return }
         syncManager.save(snapshot())
+        fileManager.saveAll(projects: projects, tasks: kanbanTasks)
     }
 
     func loadAndStartSync() {
         if let data = syncManager.load() {
             restore(from: data)
         }
+
+        // 초기 프로젝트 파일 생성 + 감시 시작
+        fileManager.saveAll(projects: projects, tasks: kanbanTasks)
+        fileManager.onExternalTasksChange = { [weak self] projectId, newTasks in
+            self?.applyExternalTasks(projectId: projectId, tasks: newTasks)
+        }
+        fileManager.startWatchingAll(projects: projects)
 
         // Auto-save on any data change
         autoSaveCancellable = Publishers.MergeMany(
@@ -170,8 +197,22 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// 외부 도구가 tasks.json을 수정했을 때 해당 프로젝트의 태스크만 교체
+    private func applyExternalTasks(projectId: UUID, tasks: [TaskItem]) {
+        isRestoring = true
+        kanbanTasks.removeAll { $0.projectId == projectId }
+        kanbanTasks.append(contentsOf: tasks)
+        isRestoring = false
+        // CloudKit에도 동기화
+        syncManager.save(snapshot())
+    }
+
     func refreshFromCloud() {
         syncManager.fetchLatest()
+    }
+
+    func handleRemoteNotification(userInfo: [String: Any]) {
+        syncManager.handleRemoteNotification(userInfo: userInfo)
     }
 }
 

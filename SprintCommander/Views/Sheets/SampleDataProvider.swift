@@ -11,18 +11,29 @@ struct SampleDataProvider {
             Project(name: "디자인 시스템", icon: "🎨", desc: "공통 컴포넌트 라이브러리 구축", progress: 60, sprint: "Sprint 2", totalTasks: 15, doneTasks: 9, color: AppStore.palette[4], startWeek: 3, durationWeeks: 5),
         ]
 
-        // Tasks
+        // Tasks (linked to projects by projectId)
+        let p0 = sampleProjects[0].id
+        let p1 = sampleProjects[1].id
+        let p2 = sampleProjects[2].id
+        let p3 = sampleProjects[3].id
+        let p4 = sampleProjects[4].id
+
         let sampleTasks: [TaskItem] = [
-            TaskItem(title: "로그인 화면 리디자인", tags: ["UI", "Feature"], priority: .high, storyPoints: 5, assignee: "JK", assigneeColor: AppStore.palette[0], status: .inProgress),
-            TaskItem(title: "사용자 프로필 API 연동", tags: ["Backend", "Integration"], priority: .high, storyPoints: 8, assignee: "SH", assigneeColor: AppStore.palette[1], status: .inProgress),
-            TaskItem(title: "푸시 알림 시스템 구현", tags: ["Feature", "Backend"], priority: .medium, storyPoints: 5, assignee: "MJ", assigneeColor: AppStore.palette[2], status: .todo),
-            TaskItem(title: "다크모드 테마 적용", tags: ["UI", "Design"], priority: .low, storyPoints: 3, assignee: "YJ", assigneeColor: AppStore.palette[3], status: .todo),
-            TaskItem(title: "결제 모듈 버그 수정", tags: ["Bug", "Core"], priority: .high, storyPoints: 8, assignee: "JK", assigneeColor: AppStore.palette[0], status: .backlog),
-            TaskItem(title: "검색 성능 최적화", tags: ["Performance", "Backend"], priority: .medium, storyPoints: 5, assignee: "SH", assigneeColor: AppStore.palette[1], status: .done),
-            TaskItem(title: "온보딩 플로우 개선", tags: ["UX", "Feature"], priority: .medium, storyPoints: 3, assignee: "MJ", assigneeColor: AppStore.palette[2], status: .done),
-            TaskItem(title: "다국어 지원 추가", tags: ["i18n", "Feature"], priority: .low, storyPoints: 5, assignee: "YJ", assigneeColor: AppStore.palette[3], status: .backlog),
-            TaskItem(title: "차트 컴포넌트 리팩토링", tags: ["Refactor", "UI"], priority: .medium, storyPoints: 3, assignee: "JK", assigneeColor: AppStore.palette[0], status: .todo),
-            TaskItem(title: "iOS 위젯 개발", tags: ["iOS", "Feature"], priority: .low, storyPoints: 8, assignee: "SH", assigneeColor: AppStore.palette[1], status: .backlog),
+            // 모바일 앱 리뉴얼
+            TaskItem(projectId: p0, title: "로그인 화면 리디자인", tags: ["UI", "Feature"], priority: .high, storyPoints: 5, assignee: "JK", assigneeColor: AppStore.palette[0], status: .inProgress),
+            TaskItem(projectId: p0, title: "푸시 알림 시스템 구현", tags: ["Feature", "Backend"], priority: .medium, storyPoints: 5, assignee: "MJ", assigneeColor: AppStore.palette[2], status: .todo),
+            TaskItem(projectId: p0, title: "다크모드 테마 적용", tags: ["UI", "Design"], priority: .low, storyPoints: 3, assignee: "YJ", assigneeColor: AppStore.palette[3], status: .todo),
+            TaskItem(projectId: p0, title: "온보딩 플로우 개선", tags: ["UX", "Feature"], priority: .medium, storyPoints: 3, assignee: "MJ", assigneeColor: AppStore.palette[2], status: .done),
+            // 웹 대시보드
+            TaskItem(projectId: p1, title: "사용자 프로필 API 연동", tags: ["Backend", "Integration"], priority: .high, storyPoints: 8, assignee: "SH", assigneeColor: AppStore.palette[1], status: .inProgress),
+            TaskItem(projectId: p1, title: "차트 컴포넌트 리팩토링", tags: ["Refactor", "UI"], priority: .medium, storyPoints: 3, assignee: "JK", assigneeColor: AppStore.palette[0], status: .todo),
+            // API 리팩토링
+            TaskItem(projectId: p2, title: "검색 성능 최적화", tags: ["Performance", "Backend"], priority: .medium, storyPoints: 5, assignee: "SH", assigneeColor: AppStore.palette[1], status: .done),
+            TaskItem(projectId: p2, title: "결제 모듈 버그 수정", tags: ["Bug", "Core"], priority: .high, storyPoints: 8, assignee: "JK", assigneeColor: AppStore.palette[0], status: .backlog),
+            // 데이터 분석 플랫폼
+            TaskItem(projectId: p3, title: "다국어 지원 추가", tags: ["i18n", "Feature"], priority: .low, storyPoints: 5, assignee: "YJ", assigneeColor: AppStore.palette[3], status: .backlog),
+            // 디자인 시스템
+            TaskItem(projectId: p4, title: "iOS 위젯 개발", tags: ["iOS", "Feature"], priority: .low, storyPoints: 8, assignee: "SH", assigneeColor: AppStore.palette[1], status: .backlog),
         ]
 
         // Team Members

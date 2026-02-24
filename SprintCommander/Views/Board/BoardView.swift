@@ -2,146 +2,112 @@ import SwiftUI
 
 struct BoardView: View {
     @EnvironmentObject var store: AppStore
-    @State private var showAddTask = false
-    @State private var showFilter = false
-    @State private var selectedTask: TaskItem? = nil
+    @State private var statusFilter: TaskItem.TaskStatus? = nil
     @State private var priorityFilter: TaskItem.Priority? = nil
-    @State private var tagFilter: String? = nil
+    @State private var selectedTask: TaskItem? = nil
+    @State private var showAddTask = false
+
+    private var filteredTasks: [TaskItem] {
+        var result = store.kanbanTasks
+        if let s = statusFilter { result = result.filter { $0.status == s } }
+        if let p = priorityFilter { result = result.filter { $0.priority == p } }
+        return result
+    }
+
+    /// Group tasks by project; tasks without a project go under nil
+    private var grouped: [(project: Project?, tasks: [TaskItem])] {
+        let dict = Dictionary(grouping: filteredTasks) { $0.projectId }
+        var result: [(Project?, [TaskItem])] = []
+        // Projects with tasks first (in store order)
+        for project in store.projects {
+            if let tasks = dict[project.id], !tasks.isEmpty {
+                result.append((project, tasks))
+            }
+        }
+        // Unlinked tasks
+        if let orphan = dict[nil], !orphan.isEmpty {
+            result.append((nil, orphan))
+        }
+        return result
+    }
+
+    private var statusCounts: [(TaskItem.TaskStatus, Int)] {
+        TaskItem.TaskStatus.allCases.map { status in
+            (status, store.kanbanTasks.filter { $0.status == status }.count)
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             PageHeader(
-                title: "스프린트 보드",
-                subtitle: store.activeSprintNames.first ?? "스프린트를 추가해주세요",
+                title: "내 태스크",
+                subtitle: "전체 \(store.kanbanTasks.count)개 태스크 · \(store.kanbanTasks.filter { $0.status == .done }.count)개 완료",
                 primaryAction: "태스크",
                 primaryIcon: "plus",
-                onPrimary: { showAddTask = true },
-                secondaryAction: "🔍 필터",
-                onSecondary: { showFilter.toggle() }
+                onPrimary: { showAddTask = true }
             )
 
-            // Filter bar
-            if showFilter {
-                HStack(spacing: 12) {
-                    // Priority filter
-                    HStack(spacing: 4) {
-                        Text("우선순위:")
-                            .font(.system(size: 11))
-                            .foregroundColor(.white.opacity(0.4))
+            // Status summary chips
+            HStack(spacing: 8) {
+                StatusChip(label: "전체", count: store.kanbanTasks.count, color: Color(hex: "4FACFE"), isSelected: statusFilter == nil) {
+                    statusFilter = nil
+                }
+                ForEach(statusCounts, id: \.0) { status, count in
+                    StatusChip(label: status.rawValue, count: count, color: status.color, isSelected: statusFilter == status) {
+                        statusFilter = statusFilter == status ? nil : status
+                    }
+                }
+
+                Spacer()
+
+                // Priority filter
+                HStack(spacing: 4) {
+                    Text("우선순위")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.3))
+                    ForEach(TaskItem.Priority.allCases, id: \.self) { p in
                         Button {
-                            priorityFilter = nil
+                            priorityFilter = priorityFilter == p ? nil : p
                         } label: {
-                            Text("전체")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(priorityFilter == nil ? .white : .white.opacity(0.4))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(priorityFilter == nil ? Color(hex: "4FACFE").opacity(0.3) : Color.white.opacity(0.06))
+                            Text(p.icon)
+                                .font(.system(size: 11))
+                                .padding(4)
+                                .background(priorityFilter == p ? p.color.opacity(0.3) : Color.white.opacity(0.04))
                                 .cornerRadius(4)
                         }
                         .buttonStyle(.plain)
-                        ForEach(TaskItem.Priority.allCases, id: \.self) { p in
-                            Button {
-                                priorityFilter = priorityFilter == p ? nil : p
-                            } label: {
-                                Text("\(p.icon) \(p.label)")
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(priorityFilter == p ? .white : .white.opacity(0.4))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(priorityFilter == p ? p.color.opacity(0.3) : Color.white.opacity(0.06))
-                                    .cornerRadius(4)
-                            }
-                            .buttonStyle(.plain)
-                        }
                     }
+                }
+            }
 
-                    Divider().frame(height: 16)
-
-                    // Tag filter
-                    if !store.allTags.isEmpty {
-                        HStack(spacing: 4) {
-                            Text("태그:")
-                                .font(.system(size: 11))
-                                .foregroundColor(.white.opacity(0.4))
-                            Button {
-                                tagFilter = nil
-                            } label: {
-                                Text("전체")
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(tagFilter == nil ? .white : .white.opacity(0.4))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(tagFilter == nil ? Color(hex: "4FACFE").opacity(0.3) : Color.white.opacity(0.06))
-                                    .cornerRadius(4)
-                            }
-                            .buttonStyle(.plain)
-                            ForEach(store.allTags.prefix(6), id: \.self) { tag in
-                                Button {
-                                    tagFilter = tagFilter == tag ? nil : tag
-                                } label: {
-                                    Text(tag)
-                                        .font(.system(size: 11, weight: .medium))
-                                        .foregroundColor(tagFilter == tag ? .white : TagStyle.color(for: tag))
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(tagFilter == tag ? TagStyle.color(for: tag).opacity(0.3) : TagStyle.color(for: tag).opacity(0.1))
-                                        .cornerRadius(4)
+            // Task list grouped by project
+            if grouped.isEmpty {
+                VStack(spacing: 12) {
+                    Text("태스크가 없습니다")
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.3))
+                    Text("프로젝트에서 태스크를 추가해보세요")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.2))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        ForEach(Array(grouped.enumerated()), id: \.offset) { _, group in
+                            ProjectTaskGroup(
+                                project: group.project,
+                                tasks: group.tasks,
+                                onTaskTap: { selectedTask = $0 },
+                                onStatusChange: { task, newStatus in
+                                    store.updateTaskStatus(id: task.id, newStatus: newStatus)
+                                },
+                                onDelete: { task in
+                                    store.deleteTask(id: task.id)
                                 }
-                                .buttonStyle(.plain)
-                            }
+                            )
                         }
                     }
-                }
-                .padding(12)
-                .background(Color.white.opacity(0.04))
-                .cornerRadius(8)
-            }
-
-            // Sprint selector chips
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(store.activeSprintNames.indices, id: \.self) { index in
-                        SprintChip(
-                            title: store.activeSprintNames[index],
-                            isSelected: store.selectedSprintIndex == index
-                        ) {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                store.selectedSprintIndex = index
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Kanban columns
-            HStack(alignment: .top, spacing: 14) {
-                ForEach(TaskItem.TaskStatus.allCases, id: \.self) { status in
-                    let filtered = store.filteredTasks(for: status, priorityFilter: priorityFilter, tagFilter: tagFilter)
-                    KanbanColumn(
-                        status: status,
-                        tasks: filtered,
-                        totalSP: filtered.reduce(0) { $0 + $1.storyPoints },
-                        onTaskTap: { task in selectedTask = task },
-                        onStatusChange: { task, newStatus in
-                            store.updateTaskStatus(id: task.id, newStatus: newStatus)
-                            store.addActivity(ActivityItem(
-                                icon: "🔄",
-                                text: "상태가 \(newStatus.rawValue)(으)로 변경되었습니다",
-                                highlightedText: task.title,
-                                time: "방금 전"
-                            ))
-                        },
-                        onDelete: { task in
-                            store.deleteTask(id: task.id)
-                            store.addActivity(ActivityItem(
-                                icon: "🗑️",
-                                text: "태스크가 삭제되었습니다",
-                                highlightedText: task.title,
-                                time: "방금 전"
-                            ))
-                        }
-                    )
                 }
             }
         }
@@ -154,178 +120,209 @@ struct BoardView: View {
     }
 }
 
-// MARK: - Sprint Chip
-struct SprintChip: View {
-    let title: String
+// MARK: - Status Chip
+
+private struct StatusChip: View {
+    let label: String
+    let count: Int
+    let color: Color
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 12))
-                .foregroundColor(isSelected ? Color(hex: "4FACFE") : .white.opacity(0.5))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(
-                    isSelected ?
-                    AnyShapeStyle(LinearGradient(
-                        colors: [Color(hex: "4FACFE").opacity(0.15), Color(hex: "A78BFA").opacity(0.15)],
-                        startPoint: .leading, endPoint: .trailing
-                    )) :
-                    AnyShapeStyle(Color.white.opacity(0.04))
-                )
-                .cornerRadius(20)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(
-                            isSelected ? Color(hex: "4FACFE").opacity(0.3) : Color.white.opacity(0.06),
-                            lineWidth: 1
-                        )
-                )
+            HStack(spacing: 5) {
+                Circle().fill(color).frame(width: 6, height: 6)
+                Text(label)
+                    .font(.system(size: 11, weight: .medium))
+                Text("\(count)")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundColor(isSelected ? .white : .white.opacity(0.3))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(isSelected ? color.opacity(0.3) : Color.white.opacity(0.06))
+                    .cornerRadius(8)
+            }
+            .foregroundColor(isSelected ? .white : .white.opacity(0.5))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(isSelected ? color.opacity(0.12) : Color.white.opacity(0.03))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? color.opacity(0.3) : Color.white.opacity(0.04), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
     }
 }
 
-// MARK: - Kanban Column
-struct KanbanColumn: View {
-    let status: TaskItem.TaskStatus
+// MARK: - Project Task Group
+
+private struct ProjectTaskGroup: View {
+    let project: Project?
     let tasks: [TaskItem]
-    let totalSP: Int
     var onTaskTap: ((TaskItem) -> Void)? = nil
     var onStatusChange: ((TaskItem, TaskItem.TaskStatus) -> Void)? = nil
     var onDelete: ((TaskItem) -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Column header
-            HStack {
-                HStack(spacing: 8) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(status.color)
-                        .frame(width: 8, height: 8)
-                    Text(status.rawValue.uppercased())
-                        .font(.system(size: 11, weight: .semibold))
-                        .tracking(0.8)
-                        .foregroundColor(.white.opacity(0.7))
+            // Project header
+            HStack(spacing: 8) {
+                if let project {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(project.color)
+                        .frame(width: 4, height: 16)
+                    Text(project.icon)
+                        .font(.system(size: 14))
+                    Text(project.name)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.8))
+                    VersionBadge(version: project.version, color: project.color)
+                } else {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.gray)
+                        .frame(width: 4, height: 16)
+                    Text("미연결 태스크")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.5))
                 }
 
                 Spacer()
 
-                Text("\(tasks.count) · \(totalSP)pt")
-                    .font(.system(size: 10, weight: .medium))
+                Text("\(tasks.count)개")
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundColor(.white.opacity(0.3))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(Color.white.opacity(0.06))
-                    .cornerRadius(10)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
 
-            Divider().background(Color.white.opacity(0.06)).padding(.horizontal, 14)
+            Divider().background(Color.white.opacity(0.04)).padding(.horizontal, 12)
 
-            // Task cards
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(tasks) { task in
-                        TaskCard(task: task)
-                            .onTapGesture { onTaskTap?(task) }
-                            .contextMenu {
-                                ForEach(TaskItem.TaskStatus.allCases, id: \.self) { newStatus in
-                                    Button {
-                                        onStatusChange?(task, newStatus)
-                                    } label: {
-                                        Label(newStatus.rawValue, systemImage: newStatus == .done ? "checkmark.circle" : "arrow.right.circle")
-                                    }
-                                }
-                                Divider()
-                                Button(role: .destructive) {
-                                    onDelete?(task)
-                                } label: {
-                                    Label("삭제", systemImage: "trash")
-                                }
+            // Task rows
+            ForEach(tasks) { task in
+                TaskRow(task: task, projectColor: project?.color ?? .gray)
+                    .onTapGesture { onTaskTap?(task) }
+                    .contextMenu {
+                        ForEach(TaskItem.TaskStatus.allCases, id: \.self) { newStatus in
+                            Button {
+                                onStatusChange?(task, newStatus)
+                            } label: {
+                                Label(newStatus.rawValue, systemImage: newStatus == .done ? "checkmark.circle" : "arrow.right.circle")
                             }
+                        }
+                        Divider()
+                        Button(role: .destructive) {
+                            onDelete?(task)
+                        } label: {
+                            Label("삭제", systemImage: "trash")
+                        }
                     }
+
+                if task.id != tasks.last?.id {
+                    Divider().background(Color.white.opacity(0.02)).padding(.horizontal, 16)
                 }
-                .padding(12)
             }
         }
-        .frame(maxWidth: .infinity)
-        .background(Color.white.opacity(0.02))
-        .cornerRadius(12)
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(10)
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.05), lineWidth: 1)
         )
-        .frame(minHeight: 400)
     }
 }
 
-// MARK: - Task Card
-struct TaskCard: View {
+// MARK: - Task Row
+
+private struct TaskRow: View {
     let task: TaskItem
+    let projectColor: Color
     @State private var isHovered = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Tags
-            HStack(spacing: 4) {
-                ForEach(task.tags, id: \.self) { tag in
-                    TagBadge(text: tag)
+        HStack(spacing: 12) {
+            // Status indicator
+            Image(systemName: statusIcon)
+                .font(.system(size: 14))
+                .foregroundColor(task.status.color)
+                .frame(width: 24)
+
+            // Title + tags
+            VStack(alignment: .leading, spacing: 3) {
+                Text(task.title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(task.status == .done ? .white.opacity(0.35) : .white.opacity(0.85))
+                    .strikethrough(task.status == .done, color: .white.opacity(0.2))
+                    .lineLimit(1)
+
+                if !task.tags.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(task.tags.prefix(3), id: \.self) { tag in
+                            Text(tag)
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundColor(TagStyle.color(for: tag).opacity(0.8))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(TagStyle.color(for: tag).opacity(0.1))
+                                .cornerRadius(3)
+                        }
+                    }
                 }
             }
 
-            // Title
-            Text(task.title)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white.opacity(0.9))
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
 
-            // Meta row
-            HStack {
-                // Priority
-                HStack(spacing: 3) {
-                    Text(task.priority.icon)
-                        .font(.system(size: 9))
-                    Text(task.priority.label)
-                        .font(.system(size: 10, weight: .semibold))
-                }
-                .foregroundColor(task.priority.color)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(task.priority.color.opacity(0.15))
-                .cornerRadius(4)
-
-                Spacer()
-
-                // Story points
-                Text("\(task.storyPoints) SP")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.3))
-
-                // Avatar
-                Text(task.assignee)
+            // Priority
+            HStack(spacing: 2) {
+                Text(task.priority.icon)
+                    .font(.system(size: 9))
+                Text(task.priority.label)
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(width: 22, height: 22)
-                    .background(task.assigneeColor)
-                    .clipShape(Circle())
+                    .foregroundColor(task.priority.color)
             }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(task.priority.color.opacity(0.1))
+            .cornerRadius(4)
+
+            // Story points
+            Text("\(task.storyPoints) SP")
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.25))
+                .frame(width: 36, alignment: .trailing)
+
+            // Assignee
+            Text(task.assignee)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 22, height: 22)
+                .background(task.assigneeColor)
+                .clipShape(Circle())
+
+            // Status badge
+            Text(task.status.rawValue)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundColor(task.status.color)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(task.status.color.opacity(0.12))
+                .cornerRadius(4)
+                .frame(width: 56)
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isHovered ? Color.white.opacity(0.07) : Color.white.opacity(0.04))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(isHovered ? Color.white.opacity(0.1) : Color.white.opacity(0.06), lineWidth: 1)
-        )
-        .scaleEffect(isHovered ? 1.01 : 1.0)
-        .animation(.easeOut(duration: 0.15), value: isHovered)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(isHovered ? Color.white.opacity(0.03) : Color.clear)
         .onHover { isHovered = $0 }
+    }
+
+    private var statusIcon: String {
+        switch task.status {
+        case .backlog: return "tray"
+        case .todo: return "circle"
+        case .inProgress: return "circle.dotted.circle"
+        case .done: return "checkmark.circle.fill"
+        }
     }
 }

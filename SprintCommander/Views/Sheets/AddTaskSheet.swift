@@ -3,6 +3,7 @@ import SwiftUI
 struct AddTaskSheet: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) var dismiss
+    var projectId: UUID? = nil
 
     @State private var title = ""
     @State private var selectedTags: Set<String> = []
@@ -93,6 +94,7 @@ struct AddTaskSheet: View {
                     let sp = Int(storyPoints) ?? 3
                     let assigneeInitial = assignee.isEmpty ? "?" : String(assignee.prefix(2))
                     let task = TaskItem(
+                        projectId: projectId,
                         title: title.isEmpty ? "새 태스크" : title,
                         tags: Array(selectedTags),
                         priority: priority,

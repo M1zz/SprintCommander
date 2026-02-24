@@ -112,6 +112,7 @@ struct Sprint: Identifiable, Hashable {
 // MARK: - Task
 struct TaskItem: Identifiable, Hashable, Codable {
     let id: UUID
+    var projectId: UUID?
     var title: String
     var tags: [String]
     var priority: Priority
@@ -120,8 +121,9 @@ struct TaskItem: Identifiable, Hashable, Codable {
     var assigneeColor: Color
     var status: TaskStatus
 
-    init(id: UUID = UUID(), title: String, tags: [String], priority: Priority, storyPoints: Int, assignee: String, assigneeColor: Color, status: TaskStatus) {
+    init(id: UUID = UUID(), projectId: UUID? = nil, title: String, tags: [String], priority: Priority, storyPoints: Int, assignee: String, assigneeColor: Color, status: TaskStatus) {
         self.id = id
+        self.projectId = projectId
         self.title = title
         self.tags = tags
         self.priority = priority
@@ -175,12 +177,13 @@ struct TaskItem: Identifiable, Hashable, Codable {
 
     // MARK: Codable
     enum CodingKeys: String, CodingKey {
-        case id, title, tags, priority, storyPoints, assignee, assigneeColorHex, status
+        case id, projectId, title, tags, priority, storyPoints, assignee, assigneeColorHex, status
     }
 
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id)
+        try c.encodeIfPresent(projectId, forKey: .projectId)
         try c.encode(title, forKey: .title)
         try c.encode(tags, forKey: .tags)
         try c.encode(priority, forKey: .priority)
@@ -193,6 +196,7 @@ struct TaskItem: Identifiable, Hashable, Codable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
+        projectId = try c.decodeIfPresent(UUID.self, forKey: .projectId)
         title = try c.decode(String.self, forKey: .title)
         tags = try c.decode([String].self, forKey: .tags)
         priority = try c.decode(Priority.self, forKey: .priority)
@@ -277,7 +281,7 @@ struct TeamMember: Identifiable, Codable {
 enum SidebarTab: String, CaseIterable, Identifiable {
     case dashboard = "대시보드"
     case timeline = "타임라인"
-    case board = "스프린트 보드"
+    case board = "내 태스크"
     case projects = "프로젝트"
     case analytics = "분석"
 
@@ -287,7 +291,7 @@ enum SidebarTab: String, CaseIterable, Identifiable {
         switch self {
         case .dashboard: return "square.grid.2x2"
         case .timeline: return "calendar.badge.clock"
-        case .board: return "list.bullet.rectangle"
+        case .board: return "person.crop.rectangle.stack"
         case .projects: return "folder"
         case .analytics: return "chart.xyaxis.line"
         }
@@ -297,7 +301,7 @@ enum SidebarTab: String, CaseIterable, Identifiable {
         switch self {
         case .dashboard: return "📊"
         case .timeline: return "📅"
-        case .board: return "📋"
+        case .board: return "✅"
         case .projects: return "📁"
         case .analytics: return "📈"
         }

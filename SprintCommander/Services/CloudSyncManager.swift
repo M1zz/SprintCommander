@@ -1,14 +1,16 @@
 import Foundation
 import CloudKit
 import Combine
+import AppKit
 
 // MARK: - CloudSyncManager
 //
 // 동기화 시나리오:
 //   A컴퓨터에서 작업 후 저장 → CloudKit 업로드
-//   B컴퓨터에서 앱 실행 / 포그라운드 전환 → fetchLatest() → 로컬보다 새 데이터면 적용
+//   B컴퓨터에서 CKDatabaseSubscription silent push 수신 → fetchLatest() → 로컬보다 새 데이터면 적용
 //
 // 핵심 설계:
+//   - CKDatabaseSubscription으로 서버 변경 시 자동 push 알림 수신
 //   - 저장 충돌(serverRecordChanged)을 타임스탬프 기반으로 해결
 //   - 네트워크 오류는 지수 백오프로 재시도
 //   - serverRecord 캐싱으로 불필요한 fetch 라운드트립 제거
@@ -34,6 +36,7 @@ final class CloudSyncManager {
     private var localURL: URL { localDir.appendingPathComponent("SprintCommanderData.json") }
 
     // MARK: - Properties
+    private let container: CKContainer
     private let db: CKDatabase
 
     /// 마지막으로 서버에서 받은 CKRecord. 저장 시 불필요한 fetch를 피하기 위해 캐싱.
@@ -66,8 +69,11 @@ final class CloudSyncManager {
 
     // MARK: - Init
 
+    private static let subscriptionID = "private-db-changes"
+
     init() {
-        db = CKContainer(identifier: CK.containerID).privateCloudDatabase
+        container = CKContainer(identifier: CK.containerID)
+        db = container.privateCloudDatabase
 
         // 1초 디바운스: 연속 수정 시 마지막 값만 저장
         saveCancellable = saveSubject
@@ -112,10 +118,54 @@ final class CloudSyncManager {
             self, selector: #selector(accountChanged),
             name: .CKAccountChanged, object: nil
         )
+
+        // 원격 알림 등록 + CloudKit 구독
+        NSApplication.shared.registerForRemoteNotifications()
+        subscribeToChanges()
     }
 
     func stopMonitoring() {
         NotificationCenter.default.removeObserver(self)
+    }
+
+    // MARK: - Push 알림 수신 처리
+
+    /// AppDelegate에서 didReceiveRemoteNotification 시 호출
+    func handleRemoteNotification(userInfo: [String: Any]) {
+        let notification = CKNotification(fromRemoteNotificationDictionary: userInfo)
+        guard notification?.subscriptionID == Self.subscriptionID else { return }
+        print("[CloudSync] push 수신 → 서버 변경 감지, fetch 시작")
+        fetchLatest()
+    }
+
+    // MARK: - CKDatabaseSubscription (서버 변경 시 silent push)
+
+    private func subscribeToChanges() {
+        // 이미 구독했는지 확인 (앱 재실행마다 중복 등록 방지)
+        let key = "CloudKit_subscriptionSaved"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+
+        let subscription = CKDatabaseSubscription(subscriptionID: Self.subscriptionID)
+
+        let info = CKSubscription.NotificationInfo()
+        info.shouldSendContentAvailable = true  // silent push
+        subscription.notificationInfo = info
+
+        let op = CKModifySubscriptionsOperation(
+            subscriptionsToSave: [subscription],
+            subscriptionIDsToDelete: nil
+        )
+        op.qualityOfService = .utility
+        op.modifySubscriptionsResultBlock = { result in
+            switch result {
+            case .success:
+                UserDefaults.standard.set(true, forKey: key)
+                print("[CloudSync] 구독 등록 완료")
+            case .failure(let error):
+                print("[CloudSync] 구독 등록 실패: \(error.localizedDescription)")
+            }
+        }
+        db.add(op)
     }
 
     // MARK: - 로컬 I/O
