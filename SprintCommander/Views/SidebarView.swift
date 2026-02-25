@@ -13,10 +13,11 @@ struct SidebarView: View {
                     ForEach(SidebarTab.allCases) { tab in
                         SidebarNavItem(
                             tab: tab,
-                            isSelected: store.selectedTab == tab,
+                            isSelected: store.selectedTab == tab && store.selectedProject == nil,
                             badge: badgeFor(tab)
                         ) {
                             withAnimation(.easeInOut(duration: 0.2)) {
+                                store.selectedProject = nil
                                 store.selectedTab = tab
                             }
                         }
@@ -48,10 +49,10 @@ struct SidebarView: View {
                     SectionLabel(text: "Projects (\(store.projects.count))")
 
                     ForEach(store.projects.prefix(12)) { project in
-                        ProjectListItem(project: project)
+                        ProjectListItem(project: project, isSelected: store.selectedProject?.id == project.id)
                             .onTapGesture {
                                 withAnimation(.easeInOut(duration: 0.2)) {
-                                    store.selectedTab = .projects
+                                    store.selectedProject = project
                                 }
                             }
                     }
@@ -175,6 +176,7 @@ struct SprintListItem: View {
 // MARK: - Project List Item
 struct ProjectListItem: View {
     let project: Project
+    var isSelected: Bool = false
     @State private var isHovered = false
 
     var body: some View {
@@ -184,14 +186,20 @@ struct ProjectListItem: View {
                 .frame(width: 7, height: 7)
             Text("\(project.icon) \(project.name)")
                 .font(.system(size: 11))
-                .foregroundColor(isHovered ? .white.opacity(0.8) : .white.opacity(0.5))
+                .foregroundColor(isSelected ? project.color : (isHovered ? .white.opacity(0.8) : .white.opacity(0.5)))
                 .lineLimit(1)
+            Spacer()
+            if !project.version.isEmpty {
+                Text("v\(project.version)")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.2))
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 5)
-                .fill(isHovered ? Color.white.opacity(0.06) : Color.clear)
+                .fill(isSelected ? project.color.opacity(0.12) : (isHovered ? Color.white.opacity(0.06) : Color.clear))
         )
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }

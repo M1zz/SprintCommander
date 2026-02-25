@@ -25,6 +25,8 @@
 		AA0001000000000000000008 /* AppData.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001000000000000000008 /* AppData.swift */; };
 		AA0001000000000000000009 /* CloudSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001000000000000000009 /* CloudSyncManager.swift */; };
 		AA000100000000000000000A /* ProjectFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000100000000000000000B /* ProjectFileManager.swift */; };
+		AA000100000000000000000C /* ProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000100000000000000000C /* ProjectDetailView.swift */; };
+		AA000100000000000000000D /* EditProjectSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000100000000000000000D /* EditProjectSheet.swift */; };
 		B5013B0D5A9041499EFC53DF /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30CD9741F3A4CB4827E742C /* AnalyticsView.swift */; };
 		BE82F823BD724A8986CD8FC9 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ECAE577EA0C4D98B1FFE925 /* AppStore.swift */; };
 		FF5A9D08DC9840C393263976 /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 599AC764F7A04E63B3691653 /* BoardView.swift */; };
@@ -48,6 +50,8 @@
 		BB0001000000000000000004 /* ProjectDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDetailSheet.swift; sourceTree = "<group>"; };
 		BB0001000000000000000005 /* SearchOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchOverlay.swift; sourceTree = "<group>"; };
 		BB0001000000000000000006 /* SampleDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleDataProvider.swift; sourceTree = "<group>"; };
+		BB000100000000000000000C /* ProjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDetailView.swift; sourceTree = "<group>"; };
+		BB000100000000000000000D /* EditProjectSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditProjectSheet.swift; sourceTree = "<group>"; };
 		BB0001000000000000000007 /* ProjectScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectScanner.swift; sourceTree = "<group>"; };
 		BB0001000000000000000008 /* AppData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppData.swift; sourceTree = "<group>"; };
 		BB0001000000000000000009 /* CloudSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncManager.swift; sourceTree = "<group>"; };
@@ -106,6 +110,7 @@
 			isa = PBXGroup;
 			children = (
 				A29ED5FCBE0C4A85A5814385 /* ProjectsView.swift */,
+				BB000100000000000000000C /* ProjectDetailView.swift */,
 			);
 			path = Projects;
 			sourceTree = "<group>";
@@ -179,6 +184,7 @@
 			isa = PBXGroup;
 			children = (
 				BB0001000000000000000001 /* AddProjectSheet.swift */,
+				BB000100000000000000000D /* EditProjectSheet.swift */,
 				BB0001000000000000000002 /* AddTaskSheet.swift */,
 				BB0001000000000000000003 /* TaskDetailSheet.swift */,
 				BB0001000000000000000004 /* ProjectDetailSheet.swift */,
@@ -269,6 +275,7 @@
 				8FCEFFCDDEBD47DE8A1F341C /* TimelineView.swift in Sources */,
 				FF5A9D08DC9840C393263976 /* BoardView.swift in Sources */,
 				437C073F1C64486BBEB92B15 /* ProjectsView.swift in Sources */,
+				AA000100000000000000000C /* ProjectDetailView.swift in Sources */,
 				B5013B0D5A9041499EFC53DF /* AnalyticsView.swift in Sources */,
 				1A1F68C525134320A167B9FE /* SharedComponents.swift in Sources */,
 				AA0001000000000000000001 /* AddProjectSheet.swift in Sources */,
@@ -281,6 +288,7 @@
 				AA0001000000000000000008 /* AppData.swift in Sources */,
 				AA0001000000000000000009 /* CloudSyncManager.swift in Sources */,
 				AA000100000000000000000A /* ProjectFileManager.swift in Sources */,
+				AA000100000000000000000D /* EditProjectSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

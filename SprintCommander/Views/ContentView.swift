@@ -114,22 +114,28 @@ struct MainContentView: View {
     @EnvironmentObject var store: AppStore
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                switch store.selectedTab {
-                case .dashboard:
-                    DashboardView()
-                case .timeline:
-                    TimelineView()
-                case .board:
-                    BoardView()
-                case .projects:
-                    ProjectsView()
-                case .analytics:
-                    AnalyticsView()
+        Group {
+            if let project = store.selectedProject {
+                ProjectDetailView(project: project)
+            } else {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        switch store.selectedTab {
+                        case .dashboard:
+                            DashboardView()
+                        case .timeline:
+                            TimelineView()
+                        case .board:
+                            BoardView()
+                        case .projects:
+                            ProjectsView()
+                        case .analytics:
+                            AnalyticsView()
+                        }
+                    }
+                    .padding(28)
                 }
             }
-            .padding(28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(

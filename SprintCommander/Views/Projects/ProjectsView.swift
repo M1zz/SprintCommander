@@ -5,8 +5,6 @@ struct ProjectsView: View {
     @State private var sortMode = 0
     @State private var searchText = ""
     @State private var showAddProject = false
-    @State private var selectedProject: Project? = nil
-
     private var sortLabel: String {
         switch sortMode {
         case 1: return "이름순"
@@ -78,15 +76,19 @@ struct ProjectsView: View {
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(filteredProjects) { project in
                     ProjectCard(project: project)
-                        .onTapGesture { selectedProject = project }
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                store.selectedProject = project
+                            }
+                        }
                 }
             }
         }
         .sheet(isPresented: $showAddProject) {
             AddProjectSheet()
         }
-        .sheet(item: $selectedProject) { project in
-            ProjectDetailSheet(project: project)
+        .onAppear {
+            store.refreshProjectVersions()
         }
     }
 }

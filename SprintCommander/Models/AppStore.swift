@@ -4,6 +4,7 @@ import Combine
 final class AppStore: ObservableObject {
     @Published var selectedTab: SidebarTab = .dashboard
     @Published var selectedSprintIndex: Int = 0
+    @Published var selectedProject: Project? = nil
     @Published var searchText: String = ""
     @Published var showNewSprintSheet: Bool = false
     @Published var showSearchOverlay: Bool = false
@@ -115,6 +116,12 @@ final class AppStore: ObservableObject {
         projects.removeAll { $0.id == id }
     }
 
+    func updateProject(_ project: Project) {
+        if let idx = projects.firstIndex(where: { $0.id == project.id }) {
+            projects[idx] = project
+        }
+    }
+
     func updateProjectSchedule(id: UUID, startWeek: Int, durationWeeks: Int? = nil) {
         if let idx = projects.firstIndex(where: { $0.id == id }) {
             projects[idx].startWeek = startWeek
@@ -177,6 +184,32 @@ final class AppStore: ObservableObject {
         fileManager.saveAll(projects: projects, tasks: kanbanTasks)
     }
 
+    // MARK: - Version Refresh
+
+    private let scanner = ProjectScanner()
+
+    /// 모든 프로젝트의 sourcePath에서 버전을 다시 읽어와 업데이트
+    func refreshProjectVersions() {
+        Task {
+            var changed = false
+            for i in projects.indices {
+                let project = projects[i]
+                guard !project.sourcePath.isEmpty else { continue }
+                if let result = await scanner.scan(path: project.sourcePath),
+                   !result.version.isEmpty,
+                   result.version != project.version {
+                    await MainActor.run {
+                        projects[i].version = result.version
+                    }
+                    changed = true
+                }
+            }
+            if changed {
+                await MainActor.run { save() }
+            }
+        }
+    }
+
     func loadAndStartSync() {
         if let data = syncManager.load() {
             restore(from: data)
@@ -206,6 +239,9 @@ final class AppStore: ObservableObject {
         syncManager.startMonitoring { [weak self] data in
             self?.restore(from: data)
         }
+
+        // 초기 버전 스캔
+        refreshProjectVersions()
 
         // 주기적 폴링 (15초마다) - push가 안 올 때 fallback
         pollTimer = Timer.publish(every: 15, on: .main, in: .common)

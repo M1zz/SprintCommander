@@ -36,16 +36,10 @@ struct MonthColumn: Identifiable {
 }
 
 func monthColumns(for viewMode: Int) -> [MonthColumn] {
+    let year = Calendar.current.component(.year, from: Date())
     switch viewMode {
-    case 0: // 월간 (6개월)
-        return [
-            MonthColumn(label: "1월", weeks: 4),
-            MonthColumn(label: "2월", weeks: 4),
-            MonthColumn(label: "3월", weeks: 5),
-            MonthColumn(label: "4월", weeks: 4),
-            MonthColumn(label: "5월", weeks: 4),
-            MonthColumn(label: "6월", weeks: 5),
-        ]
+    case 0: // 월간 (6개월, 현재 월 기준)
+        return monthColumnsFromNow(count: 6, year: year)
     case 1: // 분기 (4분기)
         return [
             MonthColumn(label: "Q1", weeks: 13),
@@ -54,9 +48,56 @@ func monthColumns(for viewMode: Int) -> [MonthColumn] {
             MonthColumn(label: "Q4", weeks: 13),
         ]
     default: // 연간 (12개월)
-        let labels = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"]
-        let weeksPerMonth = [5, 4, 4, 4, 5, 4, 4, 5, 4, 4, 5, 4]
-        return zip(labels, weeksPerMonth).map { MonthColumn(label: $0, weeks: $1) }
+        return monthColumnsForYear(year)
+    }
+}
+
+/// 해당 연도의 각 월 실제 주 수 계산
+private func monthColumnsForYear(_ year: Int) -> [MonthColumn] {
+    let labels = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"]
+    return (1...12).map { month in
+        MonthColumn(label: labels[month - 1], weeks: weeksInMonth(year: year, month: month))
+    }
+}
+
+/// 현재 월부터 count개월
+private func monthColumnsFromNow(count: Int, year: Int) -> [MonthColumn] {
+    let labels = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"]
+    let currentMonth = Calendar.current.component(.month, from: Date())
+    return (0..<count).map { offset in
+        let m = ((currentMonth - 1 + offset) % 12) + 1
+        let y = year + (currentMonth - 1 + offset) / 12
+        return MonthColumn(label: labels[m - 1], weeks: weeksInMonth(year: y, month: m))
+    }
+}
+
+private func weeksInMonth(year: Int, month: Int) -> Int {
+    var cal = Calendar(identifier: .iso8601)
+    cal.firstWeekday = 2 // Monday
+    guard let range = cal.range(of: .day, in: .month, for: cal.date(from: DateComponents(year: year, month: month))!) else { return 4 }
+    return max(4, (range.count + 6) / 7)
+}
+
+/// 올해 1월 1일부터 오늘까지의 주 오프셋 (0-based)
+func todayWeekOffset(for viewMode: Int) -> CGFloat? {
+    let cal = Calendar.current
+    let now = Date()
+    let year = cal.component(.year, from: now)
+
+    switch viewMode {
+    case 0: // 월간: 현재 월 시작부터
+        let currentMonth = cal.component(.month, from: now)
+        let startOfMonth = cal.date(from: DateComponents(year: year, month: currentMonth, day: 1))!
+        let daysSinceMonthStart = cal.dateComponents([.day], from: startOfMonth, to: now).day ?? 0
+        return CGFloat(daysSinceMonthStart) / 7.0
+    case 1: // 분기: 1월 1일부터
+        let jan1 = cal.date(from: DateComponents(year: year, month: 1, day: 1))!
+        let daysSinceJan1 = cal.dateComponents([.day], from: jan1, to: now).day ?? 0
+        return CGFloat(daysSinceJan1) / 7.0
+    default: // 연간: 1월 1일부터
+        let jan1 = cal.date(from: DateComponents(year: year, month: 1, day: 1))!
+        let daysSinceJan1 = cal.dateComponents([.day], from: jan1, to: now).day ?? 0
+        return CGFloat(daysSinceJan1) / 7.0
     }
 }
 
@@ -78,22 +119,28 @@ struct FullTimelineView: View {
 
                 Divider().background(Color.white.opacity(0.06))
 
-                // Project rows with week gridlines
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(projects) { project in
-                            FullTimelineRow(
-                                project: project,
-                                totalWeeks: totalWeeks,
-                                columns: columns,
-                                onMove: { newStart in
-                                    onMoveProject(project.id, newStart)
-                                }
-                            )
+                // Project rows with today line overlay
+                ZStack(alignment: .leading) {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(projects) { project in
+                                FullTimelineRow(
+                                    project: project,
+                                    totalWeeks: totalWeeks,
+                                    columns: columns,
+                                    onMove: { newStart in
+                                        onMoveProject(project.id, newStart)
+                                    }
+                                )
+                            }
                         }
                     }
+                    .frame(maxHeight: 600)
+
+                    // Today line
+                    TodayLineOverlay(viewMode: viewMode, totalWeeks: totalWeeks)
+                        .allowsHitTesting(false)
                 }
-                .frame(maxHeight: 600)
 
                 // Today indicator label
                 HStack {
@@ -106,6 +153,39 @@ struct FullTimelineView: View {
                     }
                     .padding(.top, 8)
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Today Line Overlay
+
+private struct TodayLineOverlay: View {
+    let viewMode: Int
+    let totalWeeks: Int
+
+    var body: some View {
+        GeometryReader { geo in
+            if let weekOffset = todayWeekOffset(for: viewMode) {
+                let projectLabelWidth: CGFloat = 200
+                let barAreaWidth = geo.size.width - projectLabelWidth
+                let weekWidth = barAreaWidth / CGFloat(totalWeeks)
+                let x = projectLabelWidth + weekOffset * weekWidth
+
+                ZStack(alignment: .top) {
+                    // Line
+                    Rectangle()
+                        .fill(Color(hex: "EF4444").opacity(0.7))
+                        .frame(width: 1.5)
+
+                    // Top diamond
+                    Image(systemName: "diamond.fill")
+                        .font(.system(size: 7))
+                        .foregroundColor(Color(hex: "EF4444"))
+                        .offset(y: -4)
+                }
+                .frame(maxHeight: .infinity)
+                .position(x: x, y: geo.size.height / 2)
             }
         }
     }
