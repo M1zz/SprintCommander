@@ -11,6 +11,8 @@ struct EditProjectSheet: View {
     @State private var desc: String
     @State private var sprint: String
     @State private var sourcePath: String
+    @State private var landingURL: String
+    @State private var pricing: String
     @State private var selectedColorIndex: Int
 
     let emojiOptions = ["📱", "🌐", "🔧", "📊", "🎨", "🚀", "💬", "🛒", "🔒", "📦", "🎮", "📡"]
@@ -22,6 +24,8 @@ struct EditProjectSheet: View {
         _desc = State(initialValue: project.desc)
         _sprint = State(initialValue: project.sprint)
         _sourcePath = State(initialValue: project.sourcePath)
+        _landingURL = State(initialValue: project.landingURL)
+        _pricing = State(initialValue: project.pricing)
 
         let colorIndex = AppStore.palette.firstIndex(where: {
             $0.toHex() == project.color.toHex()
@@ -111,6 +115,8 @@ struct EditProjectSheet: View {
                     FormField(label: "프로젝트 이름", text: $name, placeholder: "예: 모바일 앱 리뉴얼")
                     FormField(label: "설명", text: $desc, placeholder: "프로젝트에 대한 간단한 설명")
                     FormField(label: "스프린트", text: $sprint, placeholder: "Sprint 1")
+                    FormField(label: "랜딩 페이지 URL", text: $landingURL, placeholder: "https://example.com")
+                    FormField(label: "가격", text: $pricing, placeholder: "예: 무료, ₩4,900/월, $9.99")
 
                     // Color selection
                     VStack(alignment: .leading, spacing: 6) {
@@ -149,6 +155,8 @@ struct EditProjectSheet: View {
                     updated.desc = desc
                     updated.sprint = sprint
                     updated.sourcePath = sourcePath
+                    updated.landingURL = landingURL
+                    updated.pricing = pricing
                     updated.color = AppStore.palette[selectedColorIndex]
                     store.updateProject(updated)
                     if store.selectedProject?.id == project.id {
@@ -165,7 +173,7 @@ struct EditProjectSheet: View {
             }
             .padding(20)
         }
-        .frame(width: 420, height: 580)
+        .frame(width: 420, height: 660)
         .background(Color(hex: "1A1A2E"))
     }
 }

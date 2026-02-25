@@ -129,14 +129,19 @@ struct ProjectCard: View {
             }
             .padding(.bottom, 8)
 
-            // Sprint badge
-            Text("\(project.sprint) 진행 중")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(.white.opacity(0.35))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(Color.white.opacity(0.06))
-                .cornerRadius(10)
+            // Checklist badges
+            HStack(spacing: 6) {
+                cardCheckBadge(done: !project.landingURL.isEmpty, label: "랜딩")
+                cardCheckBadge(done: !project.pricing.isEmpty, label: "가격")
+                Spacer()
+                Text("\(project.sprint)")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.white.opacity(0.35))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(10)
+            }
         }
         .padding(16)
         .background(
@@ -156,5 +161,20 @@ struct ProjectCard: View {
         .scaleEffect(isHovered ? 1.02 : 1.0)
         .animation(.easeOut(duration: 0.2), value: isHovered)
         .onHover { isHovered = $0 }
+    }
+
+    private func cardCheckBadge(done: Bool, label: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 9))
+                .foregroundColor(done ? Color(hex: "34D399") : .white.opacity(0.2))
+            Text(label)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(done ? .white.opacity(0.5) : .white.opacity(0.2))
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(done ? Color(hex: "34D399").opacity(0.1) : Color.white.opacity(0.03))
+        .cornerRadius(4)
     }
 }

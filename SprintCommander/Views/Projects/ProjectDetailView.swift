@@ -175,6 +175,9 @@ struct ProjectDetailView: View {
                     infoRow(icon: "folder.fill", label: "소스 경로", value: shortenPath(project.sourcePath), color: Color(hex: "FBBF24"))
                 }
 
+                // Landing page & Pricing checklist
+                checklistRow
+
                 // Progress
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
@@ -317,6 +320,63 @@ struct ProjectDetailView: View {
             }
             .frame(minHeight: 300)
         }
+    }
+
+    // MARK: - Checklist
+
+    private var checklistRow: some View {
+        HStack(spacing: 12) {
+            checkBadge(
+                label: "랜딩 페이지",
+                value: project.landingURL,
+                doneIcon: "globe",
+                emptyIcon: "globe",
+                doneColor: Color(hex: "34D399"),
+                isURL: true
+            )
+            checkBadge(
+                label: "가격",
+                value: project.pricing,
+                doneIcon: "dollarsign.circle.fill",
+                emptyIcon: "dollarsign.circle",
+                doneColor: Color(hex: "4FACFE"),
+                isURL: false
+            )
+        }
+        .padding(.top, 4)
+    }
+
+    private func checkBadge(label: String, value: String, doneIcon: String, emptyIcon: String, doneColor: Color, isURL: Bool) -> some View {
+        let isDone = !value.isEmpty
+        return HStack(spacing: 8) {
+            Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 12))
+                .foregroundColor(isDone ? doneColor : .white.opacity(0.2))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(isDone ? 0.7 : 0.3))
+                if isDone {
+                    Text(value)
+                        .font(.system(size: 10))
+                        .foregroundColor(doneColor.opacity(0.8))
+                        .lineLimit(1)
+                } else {
+                    Text("미설정")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.2))
+                }
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(isDone ? doneColor.opacity(0.08) : Color.white.opacity(0.03))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isDone ? doneColor.opacity(0.15) : Color.white.opacity(0.04), lineWidth: 1)
+        )
     }
 
     // MARK: - Helpers

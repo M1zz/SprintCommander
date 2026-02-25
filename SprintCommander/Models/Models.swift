@@ -34,8 +34,10 @@ struct Project: Identifiable, Hashable, Codable {
     var durationWeeks: Int
     var sourcePath: String
     var version: String
+    var landingURL: String
+    var pricing: String
 
-    init(id: UUID = UUID(), name: String, icon: String, desc: String, progress: Double, sprint: String, totalTasks: Int, doneTasks: Int, color: Color, startWeek: Int = 0, durationWeeks: Int = 4, sourcePath: String = "", version: String = "") {
+    init(id: UUID = UUID(), name: String, icon: String, desc: String, progress: Double, sprint: String, totalTasks: Int, doneTasks: Int, color: Color, startWeek: Int = 0, durationWeeks: Int = 4, sourcePath: String = "", version: String = "", landingURL: String = "", pricing: String = "") {
         self.id = id
         self.name = name
         self.icon = icon
@@ -49,6 +51,8 @@ struct Project: Identifiable, Hashable, Codable {
         self.durationWeeks = durationWeeks
         self.sourcePath = sourcePath
         self.version = version
+        self.landingURL = landingURL
+        self.pricing = pricing
     }
 
     var progressPercent: String {
@@ -59,6 +63,7 @@ struct Project: Identifiable, Hashable, Codable {
     enum CodingKeys: String, CodingKey {
         case id, name, icon, desc, progress, sprint, totalTasks, doneTasks
         case colorHex, startWeek, durationWeeks, sourcePath, version
+        case landingURL, pricing
     }
 
     func encode(to encoder: Encoder) throws {
@@ -76,6 +81,8 @@ struct Project: Identifiable, Hashable, Codable {
         try c.encode(durationWeeks, forKey: .durationWeeks)
         try c.encode(PathHelper.toRelative(sourcePath), forKey: .sourcePath)
         try c.encode(version, forKey: .version)
+        try c.encode(landingURL, forKey: .landingURL)
+        try c.encode(pricing, forKey: .pricing)
     }
 
     init(from decoder: Decoder) throws {
@@ -95,6 +102,8 @@ struct Project: Identifiable, Hashable, Codable {
         let raw = try c.decode(String.self, forKey: .sourcePath)
         sourcePath = PathHelper.toAbsolute(raw)
         version = try c.decodeIfPresent(String.self, forKey: .version) ?? ""
+        landingURL = try c.decodeIfPresent(String.self, forKey: .landingURL) ?? ""
+        pricing = try c.decodeIfPresent(String.self, forKey: .pricing) ?? ""
     }
 }
 
