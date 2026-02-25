@@ -10,7 +10,8 @@ struct AddTaskSheet: View {
     @State private var priority: TaskItem.Priority = .medium
     @State private var storyPoints = "3"
     @State private var assignee = ""
-    @State private var status: TaskItem.TaskStatus = .todo
+    @State private var sprint = ""
+    @State private var status: TaskItem.TaskStatus = .backlog
 
     let availableTags = ["Feature", "UI", "Backend", "Bug", "Core", "Integration", "Performance", "Refactor", "i18n", "UX", "Design", "iOS"]
 
@@ -73,6 +74,9 @@ struct AddTaskSheet: View {
                     FormField(label: "스토리 포인트", text: $storyPoints, placeholder: "3")
                     FormField(label: "담당자", text: $assignee, placeholder: "이름 이니셜 (예: JK)")
 
+                    // Sprint
+                    sprintPicker
+
                     // Status
                     FormPicker(
                         label: "상태",
@@ -101,7 +105,8 @@ struct AddTaskSheet: View {
                         storyPoints: sp,
                         assignee: assigneeInitial,
                         assigneeColor: AppStore.palette[store.kanbanTasks.count % AppStore.palette.count],
-                        status: status
+                        status: status,
+                        sprint: sprint
                     )
                     store.addTask(task)
                     store.addActivity(ActivityItem(
@@ -115,7 +120,67 @@ struct AddTaskSheet: View {
             }
             .padding(20)
         }
-        .frame(width: 440, height: 580)
+        .frame(width: 440, height: 620)
         .background(Color(hex: "1A1A2E"))
+    }
+
+    // MARK: - Sprint Picker
+
+    private var sprintOptions: [String] {
+        var sprints: [String] = []
+        // Collect unique sprint names from projects
+        if let pid = projectId, let project = store.projects.first(where: { $0.id == pid }) {
+            if !project.sprint.isEmpty {
+                sprints.append(project.sprint)
+            }
+        } else {
+            sprints = store.projects.compactMap { $0.sprint.isEmpty ? nil : $0.sprint }
+        }
+        // Deduplicate and sort
+        return Array(Set(sprints)).sorted()
+    }
+
+    private var sprintPicker: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("스프린트")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.white.opacity(0.5))
+
+            HStack(spacing: 6) {
+                // Quick select buttons from existing sprints
+                if !sprintOptions.isEmpty {
+                    ForEach(sprintOptions, id: \.self) { name in
+                        Button {
+                            sprint = sprint == name ? "" : name
+                        } label: {
+                            Text(name)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(sprint == name ? .white : .white.opacity(0.5))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(sprint == name ? Color(hex: "4FACFE").opacity(0.3) : Color.white.opacity(0.06))
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                // Manual input
+                TextField("스프린트 이름", text: $sprint)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(6)
+            }
+
+            if sprint.isEmpty {
+                Text("미배정 (백로그)")
+                    .font(.system(size: 10))
+                    .foregroundColor(.white.opacity(0.25))
+            }
+        }
     }
 }

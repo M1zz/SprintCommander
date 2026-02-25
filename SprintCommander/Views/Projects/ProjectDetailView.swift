@@ -524,6 +524,17 @@ private struct DetailTaskCard: View {
                 .foregroundColor(.white.opacity(0.85))
                 .lineLimit(2)
 
+            // Sprint
+            if !task.sprint.isEmpty {
+                Text(task.sprint)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(Color(hex: "4FACFE").opacity(0.7))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Color(hex: "4FACFE").opacity(0.1))
+                    .cornerRadius(3)
+            }
+
             // Meta
             HStack(spacing: 6) {
                 HStack(spacing: 2) {

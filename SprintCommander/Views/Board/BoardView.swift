@@ -4,13 +4,26 @@ struct BoardView: View {
     @EnvironmentObject var store: AppStore
     @State private var statusFilter: TaskItem.TaskStatus? = nil
     @State private var priorityFilter: TaskItem.Priority? = nil
+    @State private var sprintFilter: String? = nil
     @State private var selectedTask: TaskItem? = nil
     @State private var showAddTask = false
+
+    private var allSprints: [String] {
+        let sprints = store.kanbanTasks.compactMap { $0.sprint.isEmpty ? nil : $0.sprint }
+        return Array(Set(sprints)).sorted()
+    }
 
     private var filteredTasks: [TaskItem] {
         var result = store.kanbanTasks
         if let s = statusFilter { result = result.filter { $0.status == s } }
         if let p = priorityFilter { result = result.filter { $0.priority == p } }
+        if let sp = sprintFilter {
+            if sp == "_unassigned" {
+                result = result.filter { $0.sprint.isEmpty }
+            } else {
+                result = result.filter { $0.sprint == sp }
+            }
+        }
         return result
     }
 
@@ -59,6 +72,41 @@ struct BoardView: View {
                 }
 
                 Spacer()
+
+                // Sprint filter
+                if !allSprints.isEmpty {
+                    HStack(spacing: 4) {
+                        Text("스프린트")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.3))
+                        Button {
+                            sprintFilter = sprintFilter == "_unassigned" ? nil : "_unassigned"
+                        } label: {
+                            Text("미배정")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(sprintFilter == "_unassigned" ? .white : .white.opacity(0.4))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(sprintFilter == "_unassigned" ? Color.gray.opacity(0.3) : Color.white.opacity(0.04))
+                                .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+                        ForEach(allSprints, id: \.self) { sp in
+                            Button {
+                                sprintFilter = sprintFilter == sp ? nil : sp
+                            } label: {
+                                Text(sp)
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(sprintFilter == sp ? .white : .white.opacity(0.4))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(sprintFilter == sp ? Color(hex: "4FACFE").opacity(0.3) : Color.white.opacity(0.04))
+                                    .cornerRadius(4)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
 
                 // Priority filter
                 HStack(spacing: 4) {
@@ -273,6 +321,17 @@ private struct TaskRow: View {
             }
 
             Spacer()
+
+            // Sprint badge
+            if !task.sprint.isEmpty {
+                Text(task.sprint)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(Color(hex: "4FACFE").opacity(0.7))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color(hex: "4FACFE").opacity(0.1))
+                    .cornerRadius(4)
+            }
 
             // Priority
             HStack(spacing: 2) {

@@ -129,8 +129,9 @@ struct TaskItem: Identifiable, Hashable, Codable {
     var assignee: String
     var assigneeColor: Color
     var status: TaskStatus
+    var sprint: String
 
-    init(id: UUID = UUID(), projectId: UUID? = nil, title: String, tags: [String], priority: Priority, storyPoints: Int, assignee: String, assigneeColor: Color, status: TaskStatus) {
+    init(id: UUID = UUID(), projectId: UUID? = nil, title: String, tags: [String], priority: Priority, storyPoints: Int, assignee: String, assigneeColor: Color, status: TaskStatus, sprint: String = "") {
         self.id = id
         self.projectId = projectId
         self.title = title
@@ -140,6 +141,7 @@ struct TaskItem: Identifiable, Hashable, Codable {
         self.assignee = assignee
         self.assigneeColor = assigneeColor
         self.status = status
+        self.sprint = sprint
     }
 
     enum Priority: String, CaseIterable, Codable {
@@ -186,7 +188,7 @@ struct TaskItem: Identifiable, Hashable, Codable {
 
     // MARK: Codable
     enum CodingKeys: String, CodingKey {
-        case id, projectId, title, tags, priority, storyPoints, assignee, assigneeColorHex, status
+        case id, projectId, title, tags, priority, storyPoints, assignee, assigneeColorHex, status, sprint
     }
 
     func encode(to encoder: Encoder) throws {
@@ -200,6 +202,7 @@ struct TaskItem: Identifiable, Hashable, Codable {
         try c.encode(assignee, forKey: .assignee)
         try c.encode(assigneeColor.toHex(), forKey: .assigneeColorHex)
         try c.encode(status, forKey: .status)
+        try c.encode(sprint, forKey: .sprint)
     }
 
     init(from decoder: Decoder) throws {
@@ -214,6 +217,7 @@ struct TaskItem: Identifiable, Hashable, Codable {
         let hex = try c.decode(String.self, forKey: .assigneeColorHex)
         assigneeColor = Color(hex: hex)
         status = try c.decode(TaskStatus.self, forKey: .status)
+        sprint = try c.decodeIfPresent(String.self, forKey: .sprint) ?? ""
     }
 }
 
