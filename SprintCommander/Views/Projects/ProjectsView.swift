@@ -78,6 +78,7 @@ struct ProjectsView: View {
                     ProjectCard(project: project)
                         .onTapGesture {
                             withAnimation(.easeInOut(duration: 0.2)) {
+                                store.selectedSprint = nil
                                 store.selectedProject = project
                             }
                         }
@@ -95,6 +96,7 @@ struct ProjectsView: View {
 
 // MARK: - Project Card
 struct ProjectCard: View {
+    @EnvironmentObject var store: AppStore
     let project: Project
     @State private var isHovered = false
 
@@ -132,11 +134,18 @@ struct ProjectCard: View {
             // Checklist badges
             HStack(spacing: 6) {
                 cardCheckBadge(done: !project.landingURL.isEmpty, label: "랜딩")
-                cardCheckBadge(done: !project.pricing.isEmpty, label: "가격")
+                cardCheckBadge(done: !project.appStoreURL.isEmpty, label: "스토어")
+                cardCheckBadge(done: !project.pricing.isEmpty, label: "가격\(project.pricing.isEmpty ? "" : "(\(project.pricing.filledCount))")")
+                cardCheckBadge(done: !project.languages.isEmpty, label: "다국어\(project.languages.isEmpty ? "" : "(\(project.languages.count))")")
                 Spacer()
-                Text("\(project.sprint)")
+                let sprintCount = store.sprints(for: project.id).filter { $0.isActive }.count
+                HStack(spacing: 3) {
+                    Image(systemName: "flag.fill")
+                        .font(.system(size: 8))
+                    Text(sprintCount > 0 ? "\(sprintCount)개 스프린트" : "스프린트 없음")
+                }
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.white.opacity(0.35))
+                    .foregroundColor(sprintCount > 0 ? .white.opacity(0.45) : .white.opacity(0.2))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(Color.white.opacity(0.06))

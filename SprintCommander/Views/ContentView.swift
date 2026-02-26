@@ -115,8 +115,10 @@ struct MainContentView: View {
 
     var body: some View {
         Group {
-            if let project = store.selectedProject {
-                ProjectDetailView(project: project)
+            if let project = store.selectedProject, let sprint = store.selectedSprint {
+                ProjectDetailView(project: project, sprint: sprint)
+            } else if let project = store.selectedProject {
+                ProjectSprintListView(project: project)
             } else {
                 ScrollView {
                     VStack(spacing: 0) {

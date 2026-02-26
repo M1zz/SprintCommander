@@ -19,6 +19,38 @@ private enum PathHelper {
     }
 }
 
+// MARK: - Pricing
+struct PricingInfo: Codable, Hashable {
+    var downloadPrice: String   // 다운로드 가격 (무료 / ₩4,900 등)
+    var monthlyPrice: String    // 월별 구독
+    var yearlyPrice: String     // 연간 구독
+    var lifetimePrice: String   // 1회 평생구매
+
+    init(downloadPrice: String = "", monthlyPrice: String = "", yearlyPrice: String = "", lifetimePrice: String = "") {
+        self.downloadPrice = downloadPrice
+        self.monthlyPrice = monthlyPrice
+        self.yearlyPrice = yearlyPrice
+        self.lifetimePrice = lifetimePrice
+    }
+
+    var isEmpty: Bool {
+        downloadPrice.isEmpty && monthlyPrice.isEmpty && yearlyPrice.isEmpty && lifetimePrice.isEmpty
+    }
+
+    var summary: String {
+        var parts: [String] = []
+        if !downloadPrice.isEmpty { parts.append(downloadPrice) }
+        if !monthlyPrice.isEmpty { parts.append("\(monthlyPrice)/월") }
+        if !yearlyPrice.isEmpty { parts.append("\(yearlyPrice)/년") }
+        if !lifetimePrice.isEmpty { parts.append("\(lifetimePrice) 평생") }
+        return parts.joined(separator: " · ")
+    }
+
+    var filledCount: Int {
+        [downloadPrice, monthlyPrice, yearlyPrice, lifetimePrice].filter { !$0.isEmpty }.count
+    }
+}
+
 // MARK: - Project
 struct Project: Identifiable, Hashable, Codable {
     let id: UUID
@@ -35,9 +67,11 @@ struct Project: Identifiable, Hashable, Codable {
     var sourcePath: String
     var version: String
     var landingURL: String
-    var pricing: String
+    var appStoreURL: String
+    var pricing: PricingInfo
+    var languages: [String]
 
-    init(id: UUID = UUID(), name: String, icon: String, desc: String, progress: Double, sprint: String, totalTasks: Int, doneTasks: Int, color: Color, startWeek: Int = 0, durationWeeks: Int = 4, sourcePath: String = "", version: String = "", landingURL: String = "", pricing: String = "") {
+    init(id: UUID = UUID(), name: String, icon: String, desc: String, progress: Double, sprint: String, totalTasks: Int, doneTasks: Int, color: Color, startWeek: Int = 0, durationWeeks: Int = 4, sourcePath: String = "", version: String = "", landingURL: String = "", appStoreURL: String = "", pricing: PricingInfo = PricingInfo(), languages: [String] = []) {
         self.id = id
         self.name = name
         self.icon = icon
@@ -52,7 +86,9 @@ struct Project: Identifiable, Hashable, Codable {
         self.sourcePath = sourcePath
         self.version = version
         self.landingURL = landingURL
+        self.appStoreURL = appStoreURL
         self.pricing = pricing
+        self.languages = languages
     }
 
     var progressPercent: String {
@@ -63,7 +99,7 @@ struct Project: Identifiable, Hashable, Codable {
     enum CodingKeys: String, CodingKey {
         case id, name, icon, desc, progress, sprint, totalTasks, doneTasks
         case colorHex, startWeek, durationWeeks, sourcePath, version
-        case landingURL, pricing
+        case landingURL, appStoreURL, pricing, languages
     }
 
     func encode(to encoder: Encoder) throws {
@@ -82,7 +118,9 @@ struct Project: Identifiable, Hashable, Codable {
         try c.encode(PathHelper.toRelative(sourcePath), forKey: .sourcePath)
         try c.encode(version, forKey: .version)
         try c.encode(landingURL, forKey: .landingURL)
+        try c.encode(appStoreURL, forKey: .appStoreURL)
         try c.encode(pricing, forKey: .pricing)
+        try c.encode(languages, forKey: .languages)
     }
 
     init(from decoder: Decoder) throws {
@@ -103,19 +141,57 @@ struct Project: Identifiable, Hashable, Codable {
         sourcePath = PathHelper.toAbsolute(raw)
         version = try c.decodeIfPresent(String.self, forKey: .version) ?? ""
         landingURL = try c.decodeIfPresent(String.self, forKey: .landingURL) ?? ""
-        pricing = try c.decodeIfPresent(String.self, forKey: .pricing) ?? ""
+        appStoreURL = try c.decodeIfPresent(String.self, forKey: .appStoreURL) ?? ""
+        // 하위 호환: 기존 String → PricingInfo 마이그레이션
+        if let pricingObj = try? c.decodeIfPresent(PricingInfo.self, forKey: .pricing) {
+            pricing = pricingObj
+        } else if let oldStr = try? c.decodeIfPresent(String.self, forKey: .pricing), !oldStr.isEmpty {
+            pricing = PricingInfo(downloadPrice: oldStr)
+        } else {
+            pricing = PricingInfo()
+        }
+        languages = try c.decodeIfPresent([String].self, forKey: .languages) ?? []
     }
 }
 
 // MARK: - Sprint
-struct Sprint: Identifiable, Hashable {
-    let id = UUID()
-    let name: String
-    let projectName: String
-    let color: Color
-    let startDate: Date
-    let endDate: Date
+struct Sprint: Identifiable, Hashable, Codable {
+    let id: UUID
+    var projectId: UUID
+    var name: String
+    var goal: String
+    var startDate: Date
+    var endDate: Date
     var isActive: Bool
+
+    init(id: UUID = UUID(), projectId: UUID, name: String, goal: String = "", startDate: Date = Date(), endDate: Date = Calendar.current.date(byAdding: .weekOfYear, value: 2, to: Date()) ?? Date(), isActive: Bool = true) {
+        self.id = id
+        self.projectId = projectId
+        self.name = name
+        self.goal = goal
+        self.startDate = startDate
+        self.endDate = endDate
+        self.isActive = isActive
+    }
+
+    var isCompleted: Bool {
+        !isActive && endDate < Date()
+    }
+
+    var daysRemaining: Int {
+        max(0, Calendar.current.dateComponents([.day], from: Date(), to: endDate).day ?? 0)
+    }
+
+    var totalDays: Int {
+        max(1, Calendar.current.dateComponents([.day], from: startDate, to: endDate).day ?? 1)
+    }
+
+    var progressByTime: Double {
+        let elapsed = Date().timeIntervalSince(startDate)
+        let total = endDate.timeIntervalSince(startDate)
+        guard total > 0 else { return 0 }
+        return min(max(elapsed / total, 0), 1.0) * 100
+    }
 }
 
 // MARK: - Task

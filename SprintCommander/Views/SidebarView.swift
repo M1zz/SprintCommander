@@ -17,10 +17,36 @@ struct SidebarView: View {
                             badge: badgeFor(tab)
                         ) {
                             withAnimation(.easeInOut(duration: 0.2)) {
+                                store.selectedSprint = nil
                                 store.selectedProject = nil
                                 store.selectedTab = tab
                             }
                         }
+                    }
+                }
+
+                // Projects
+                VStack(alignment: .leading, spacing: 4) {
+                    SectionLabel(text: "Projects (\(store.projects.count))")
+
+                    ForEach(store.projects.prefix(12)) { project in
+                        ProjectListItem(project: project, isSelected: store.selectedProject?.id == project.id)
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    store.selectedSprint = nil
+                                    store.selectedProject = project
+                                }
+                            }
+                    }
+
+                    if store.projects.count > 12 {
+                        HStack(spacing: 8) {
+                            Text("+ 더보기 (\(store.projects.count - 12))")
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.3))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
                     }
                 }
 
@@ -41,30 +67,6 @@ struct SidebarView: View {
                                 }
                             }
                         }
-                    }
-                }
-
-                // Projects
-                VStack(alignment: .leading, spacing: 4) {
-                    SectionLabel(text: "Projects (\(store.projects.count))")
-
-                    ForEach(store.projects.prefix(12)) { project in
-                        ProjectListItem(project: project, isSelected: store.selectedProject?.id == project.id)
-                            .onTapGesture {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    store.selectedProject = project
-                                }
-                            }
-                    }
-
-                    if store.projects.count > 12 {
-                        HStack(spacing: 8) {
-                            Text("+ 더보기 (\(store.projects.count - 12))")
-                                .font(.system(size: 11))
-                                .foregroundColor(.white.opacity(0.3))
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
                     }
                 }
             }

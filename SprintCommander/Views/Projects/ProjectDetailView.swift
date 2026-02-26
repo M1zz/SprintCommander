@@ -3,17 +3,18 @@ import SwiftUI
 struct ProjectDetailView: View {
     @EnvironmentObject var store: AppStore
     let project: Project
+    let sprint: Sprint
 
     @State private var showAddTask = false
     @State private var selectedTask: TaskItem? = nil
     @State private var showDeleteConfirm = false
     @State private var showEditProject = false
 
-    private var projectTasks: [TaskItem] { store.tasks(for: project.id) }
-    private var doneTasks: Int { projectTasks.filter { $0.status == .done }.count }
-    private var inProgressTasks: Int { projectTasks.filter { $0.status == .inProgress }.count }
-    private var totalSP: Int { projectTasks.reduce(0) { $0 + $1.storyPoints } }
-    private var doneSP: Int { projectTasks.filter { $0.status == .done }.reduce(0) { $0 + $1.storyPoints } }
+    private var sprintTasks: [TaskItem] { store.tasks(for: sprint) }
+    private var doneTasks: Int { sprintTasks.filter { $0.status == .done }.count }
+    private var inProgressTasks: Int { sprintTasks.filter { $0.status == .inProgress }.count }
+    private var totalSP: Int { sprintTasks.reduce(0) { $0 + $1.storyPoints } }
+    private var doneSP: Int { sprintTasks.filter { $0.status == .done }.reduce(0) { $0 + $1.storyPoints } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -37,7 +38,7 @@ struct ProjectDetailView: View {
             }
         }
         .sheet(isPresented: $showAddTask) {
-            AddTaskSheet(projectId: project.id)
+            AddTaskSheet(projectId: project.id, sprintName: sprint.name)
         }
         .sheet(isPresented: $showEditProject) {
             EditProjectSheet(project: project)
@@ -54,6 +55,7 @@ struct ProjectDetailView: View {
                     highlightedText: project.name,
                     time: "방금 전"
                 ))
+                store.selectedSprint = nil
                 store.selectedProject = nil
             }
             Button("취소", role: .cancel) {}
@@ -66,16 +68,16 @@ struct ProjectDetailView: View {
 
     private var header: some View {
         HStack(spacing: 16) {
-            // Back button
+            // Back button - goes to sprint list
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
-                    store.selectedProject = nil
+                    store.selectedSprint = nil
                 }
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 12, weight: .semibold))
-                    Text("뒤로")
+                    Text("스프린트")
                         .font(.system(size: 13))
                 }
                 .foregroundColor(.white.opacity(0.5))
@@ -86,7 +88,7 @@ struct ProjectDetailView: View {
             }
             .buttonStyle(.plain)
 
-            // Project icon + name
+            // Project icon + name + sprint
             Text(project.icon)
                 .font(.system(size: 28))
                 .frame(width: 44, height: 44)
@@ -98,7 +100,13 @@ struct ProjectDetailView: View {
                     Text(project.name)
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(.white)
-                    VersionBadge(version: project.version, color: project.color)
+                    Text(sprint.name)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(project.color)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(project.color.opacity(0.12))
+                        .cornerRadius(6)
                 }
                 Text(project.desc)
                     .font(.system(size: 12))
@@ -163,7 +171,10 @@ struct ProjectDetailView: View {
                 SectionHeaderView(title: "프로젝트 정보")
 
                 // Sprint
-                infoRow(icon: "flag.fill", label: "현재 스프린트", value: project.sprint, color: project.color)
+                infoRow(icon: "flag.fill", label: "스프린트", value: sprint.name, color: project.color)
+
+                // Sprint period
+                sprintPeriodRow
 
                 // Version
                 if !project.version.isEmpty {
@@ -185,11 +196,13 @@ struct ProjectDetailView: View {
                             .font(.system(size: 11))
                             .foregroundColor(.white.opacity(0.4))
                         Spacer()
-                        Text("\(Int(project.progress))%")
+                        let sprintProgress = sprintTasks.isEmpty ? 0.0 : Double(doneTasks) / Double(sprintTasks.count) * 100
+                        Text("\(Int(sprintProgress))%")
                             .font(.system(size: 12, weight: .bold, design: .monospaced))
                             .foregroundColor(project.color)
                     }
-                    ProgressBarView(progress: project.progress, color: project.color, height: 6)
+                    let sprintProgress = sprintTasks.isEmpty ? 0.0 : Double(doneTasks) / Double(sprintTasks.count) * 100
+                    ProgressBarView(progress: sprintProgress, color: project.color, height: 6)
                 }
                 .padding(.top, 4)
             }
@@ -218,7 +231,7 @@ struct ProjectDetailView: View {
                         }
 
                         // Task summary as release notes
-                        let completed = store.tasks(for: project.id, status: .done)
+                        let completed = sprintTasks.filter { $0.status == .done }
                         if completed.isEmpty {
                             Text("완료된 태스크가 없습니다")
                                 .font(.system(size: 12))
@@ -269,7 +282,7 @@ struct ProjectDetailView: View {
 
     private var statsRow: some View {
         HStack(spacing: 12) {
-            miniStat(label: "전체 태스크", value: "\(projectTasks.count)", color: Color(hex: "4FACFE"))
+            miniStat(label: "전체 태스크", value: "\(sprintTasks.count)", color: Color(hex: "4FACFE"))
             miniStat(label: "진행 중", value: "\(inProgressTasks)", color: .orange)
             miniStat(label: "완료", value: "\(doneTasks)", color: Color(hex: "34D399"))
             miniStat(label: "스토리 포인트", value: "\(doneSP)/\(totalSP) SP", color: Color(hex: "A78BFA"))
@@ -303,7 +316,7 @@ struct ProjectDetailView: View {
 
             HStack(alignment: .top, spacing: 12) {
                 ForEach(TaskItem.TaskStatus.allCases, id: \.self) { status in
-                    let tasks = store.tasks(for: project.id, status: status)
+                    let tasks = sprintTasks.filter { $0.status == status }
                     DetailKanbanColumn(
                         status: status,
                         tasks: tasks,
@@ -322,6 +335,35 @@ struct ProjectDetailView: View {
         }
     }
 
+    // MARK: - Sprint Period
+
+    private var sprintPeriodRow: some View {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy.M.d"
+        return HStack(spacing: 10) {
+            Image(systemName: "calendar")
+                .font(.system(size: 11))
+                .foregroundColor(Color(hex: "22D3EE").opacity(0.7))
+                .frame(width: 20)
+            Text("기간")
+                .font(.system(size: 12))
+                .foregroundColor(.white.opacity(0.4))
+            Spacer()
+            Text("\(fmt.string(from: sprint.startDate)) - \(fmt.string(from: sprint.endDate))")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.white.opacity(0.8))
+            if sprint.isActive {
+                Text("\(sprint.daysRemaining)일 남음")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(sprint.daysRemaining <= 3 ? Color(hex: "EF4444") : Color(hex: "FB923C"))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background((sprint.daysRemaining <= 3 ? Color(hex: "EF4444") : Color(hex: "FB923C")).opacity(0.12))
+                    .cornerRadius(4)
+            }
+        }
+    }
+
     // MARK: - Checklist
 
     private var checklistRow: some View {
@@ -335,8 +377,16 @@ struct ProjectDetailView: View {
                 isURL: true
             )
             checkBadge(
+                label: "앱스토어",
+                value: project.appStoreURL,
+                doneIcon: "bag.fill",
+                emptyIcon: "bag",
+                doneColor: Color(hex: "6366F1"),
+                isURL: true
+            )
+            checkBadge(
                 label: "가격",
-                value: project.pricing,
+                value: project.pricing.summary,
                 doneIcon: "dollarsign.circle.fill",
                 emptyIcon: "dollarsign.circle",
                 doneColor: Color(hex: "4FACFE"),

@@ -12,10 +12,21 @@ struct EditProjectSheet: View {
     @State private var sprint: String
     @State private var sourcePath: String
     @State private var landingURL: String
-    @State private var pricing: String
+    @State private var appStoreURL: String
+    @State private var downloadPrice: String
+    @State private var monthlyPrice: String
+    @State private var yearlyPrice: String
+    @State private var lifetimePrice: String
     @State private var selectedColorIndex: Int
+    @State private var selectedLanguages: Set<String>
 
     let emojiOptions = ["📱", "🌐", "🔧", "📊", "🎨", "🚀", "💬", "🛒", "🔒", "📦", "🎮", "📡"]
+    static let availableLanguages = [
+        "한국어", "English", "日本語", "中文(简体)", "中文(繁體)",
+        "Español", "Français", "Deutsch", "Português", "Italiano",
+        "Tiếng Việt", "ไทย", "Bahasa Indonesia", "हिन्दी", "العربية",
+        "Русский", "Türkçe", "Polski", "Nederlands", "Svenska"
+    ]
 
     init(project: Project) {
         self.project = project
@@ -25,12 +36,17 @@ struct EditProjectSheet: View {
         _sprint = State(initialValue: project.sprint)
         _sourcePath = State(initialValue: project.sourcePath)
         _landingURL = State(initialValue: project.landingURL)
-        _pricing = State(initialValue: project.pricing)
+        _appStoreURL = State(initialValue: project.appStoreURL)
+        _downloadPrice = State(initialValue: project.pricing.downloadPrice)
+        _monthlyPrice = State(initialValue: project.pricing.monthlyPrice)
+        _yearlyPrice = State(initialValue: project.pricing.yearlyPrice)
+        _lifetimePrice = State(initialValue: project.pricing.lifetimePrice)
 
         let colorIndex = AppStore.palette.firstIndex(where: {
             $0.toHex() == project.color.toHex()
         }) ?? 0
         _selectedColorIndex = State(initialValue: colorIndex)
+        _selectedLanguages = State(initialValue: Set(project.languages))
     }
 
     var body: some View {
@@ -116,7 +132,58 @@ struct EditProjectSheet: View {
                     FormField(label: "설명", text: $desc, placeholder: "프로젝트에 대한 간단한 설명")
                     FormField(label: "스프린트", text: $sprint, placeholder: "Sprint 1")
                     FormField(label: "랜딩 페이지 URL", text: $landingURL, placeholder: "https://example.com")
-                    FormField(label: "가격", text: $pricing, placeholder: "예: 무료, ₩4,900/월, $9.99")
+                    FormField(label: "앱스토어 URL", text: $appStoreURL, placeholder: "https://apps.apple.com/app/...")
+
+                    // Pricing section
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("가격 정보")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.5))
+                        pricingRow(icon: "arrow.down.circle", label: "다운로드", text: $downloadPrice, placeholder: "무료 또는 ₩4,900")
+                        pricingRow(icon: "calendar", label: "월 구독", text: $monthlyPrice, placeholder: "₩4,900")
+                        pricingRow(icon: "calendar.badge.clock", label: "연 구독", text: $yearlyPrice, placeholder: "₩49,000")
+                        pricingRow(icon: "infinity", label: "평생구매", text: $lifetimePrice, placeholder: "₩99,000")
+                    }
+
+                    // Languages section
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("지원 다국어")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.5))
+                            Spacer()
+                            if !selectedLanguages.isEmpty {
+                                Text("\(selectedLanguages.count)개 선택")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(Color(hex: "4FACFE"))
+                            }
+                        }
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
+                            ForEach(Self.availableLanguages, id: \.self) { lang in
+                                let isSelected = selectedLanguages.contains(lang)
+                                Button {
+                                    if isSelected {
+                                        selectedLanguages.remove(lang)
+                                    } else {
+                                        selectedLanguages.insert(lang)
+                                    }
+                                } label: {
+                                    Text(lang)
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundColor(isSelected ? .white : .white.opacity(0.4))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 6)
+                                        .background(isSelected ? Color(hex: "4FACFE").opacity(0.25) : Color.white.opacity(0.04))
+                                        .cornerRadius(6)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(isSelected ? Color(hex: "4FACFE").opacity(0.4) : Color.white.opacity(0.06), lineWidth: 1)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
 
                     // Color selection
                     VStack(alignment: .leading, spacing: 6) {
@@ -156,7 +223,14 @@ struct EditProjectSheet: View {
                     updated.sprint = sprint
                     updated.sourcePath = sourcePath
                     updated.landingURL = landingURL
-                    updated.pricing = pricing
+                    updated.appStoreURL = appStoreURL
+                    updated.pricing = PricingInfo(
+                        downloadPrice: downloadPrice,
+                        monthlyPrice: monthlyPrice,
+                        yearlyPrice: yearlyPrice,
+                        lifetimePrice: lifetimePrice
+                    )
+                    updated.languages = Self.availableLanguages.filter { selectedLanguages.contains($0) }
                     updated.color = AppStore.palette[selectedColorIndex]
                     store.updateProject(updated)
                     if store.selectedProject?.id == project.id {
@@ -173,7 +247,32 @@ struct EditProjectSheet: View {
             }
             .padding(20)
         }
-        .frame(width: 420, height: 660)
+        .frame(width: 420, height: 800)
         .background(Color(hex: "1A1A2E"))
+    }
+
+    private func pricingRow(icon: String, label: String, text: Binding<String>, placeholder: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundColor(.white.opacity(0.35))
+                .frame(width: 16)
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.5))
+                .frame(width: 52, alignment: .leading)
+            TextField(placeholder, text: text)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundColor(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        }
     }
 }

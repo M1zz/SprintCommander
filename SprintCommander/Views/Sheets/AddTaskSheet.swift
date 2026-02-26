@@ -4,6 +4,7 @@ struct AddTaskSheet: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) var dismiss
     var projectId: UUID? = nil
+    var sprintName: String = ""
 
     @State private var title = ""
     @State private var selectedTags: Set<String> = []
@@ -127,17 +128,10 @@ struct AddTaskSheet: View {
     // MARK: - Sprint Picker
 
     private var sprintOptions: [String] {
-        var sprints: [String] = []
-        // Collect unique sprint names from projects
-        if let pid = projectId, let project = store.projects.first(where: { $0.id == pid }) {
-            if !project.sprint.isEmpty {
-                sprints.append(project.sprint)
-            }
-        } else {
-            sprints = store.projects.compactMap { $0.sprint.isEmpty ? nil : $0.sprint }
+        if let pid = projectId {
+            return store.sprints(for: pid).map { $0.name }
         }
-        // Deduplicate and sort
-        return Array(Set(sprints)).sorted()
+        return store.sprints.map { $0.name }
     }
 
     private var sprintPicker: some View {
@@ -180,6 +174,11 @@ struct AddTaskSheet: View {
                 Text("미배정 (백로그)")
                     .font(.system(size: 10))
                     .foregroundColor(.white.opacity(0.25))
+            }
+        }
+        .onAppear {
+            if !sprintName.isEmpty {
+                sprint = sprintName
             }
         }
     }

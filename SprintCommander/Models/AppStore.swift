@@ -8,6 +8,7 @@ final class AppStore: ObservableObject {
     @Published var searchText: String = ""
     @Published var showNewSprintSheet: Bool = false
     @Published var showSearchOverlay: Bool = false
+    @Published var selectedSprint: Sprint? = nil
 
     private let syncManager = CloudSyncManager()
     private let fileManager = ProjectFileManager()
@@ -36,6 +37,7 @@ final class AppStore: ObservableObject {
     @Published var teamMembers: [TeamMember] = []
     @Published var burndownIdeal: [Double] = []
     @Published var burndownActual: [Double] = []
+    @Published var sprints: [Sprint] = []
 
     // MARK: - Computed
     var totalDoneTasks: Int { projects.reduce(0) { $0 + $1.doneTasks } }
@@ -67,8 +69,94 @@ final class AppStore: ObservableObject {
     }
 
     var activeSprintNames: [String] {
-        let active = projects.filter { $0.progress < 100 && $0.progress > 0 }
-        return active.prefix(4).map { "\($0.sprint) · \($0.name)" }
+        let active = sprints.filter { $0.isActive }
+        return active.map { sprint in
+            let projectName = projects.first(where: { $0.id == sprint.projectId })?.name ?? ""
+            return "\(sprint.name) · \(projectName)"
+        }
+    }
+
+    // MARK: - Sprint helpers
+
+    func sprints(for projectId: UUID) -> [Sprint] {
+        sprints.filter { $0.projectId == projectId }
+    }
+
+    func activeSprint(for projectId: UUID) -> Sprint? {
+        sprints.first(where: { $0.projectId == projectId && $0.isActive })
+    }
+
+    func addSprint(_ sprint: Sprint) {
+        sprints.append(sprint)
+        syncProjectFields()
+    }
+
+    func updateSprint(_ sprint: Sprint) {
+        if let idx = sprints.firstIndex(where: { $0.id == sprint.id }) {
+            sprints[idx] = sprint
+        }
+        syncProjectFields()
+    }
+
+    func deleteSprint(id: UUID) {
+        sprints.removeAll { $0.id == id }
+        syncProjectFields()
+    }
+
+    func completeSprint(id: UUID) {
+        if let idx = sprints.firstIndex(where: { $0.id == id }) {
+            sprints[idx].isActive = false
+        }
+        syncProjectFields()
+    }
+
+    /// project.sprint / project.progress / project.totalTasks / project.doneTasks 를
+    /// 실제 Sprint 객체 및 태스크 데이터와 동기화
+    func syncProjectFields() {
+        for i in projects.indices {
+            let pid = projects[i].id
+
+            // sprint 이름: 활성 스프린트 이름들을 표시
+            let active = sprints.filter { $0.projectId == pid && $0.isActive }
+            if let first = active.first {
+                if active.count == 1 {
+                    projects[i].sprint = first.name
+                } else {
+                    projects[i].sprint = "\(first.name) 외 \(active.count - 1)개"
+                }
+            } else {
+                let all = sprints.filter { $0.projectId == pid }
+                if all.isEmpty {
+                    projects[i].sprint = ""
+                } else {
+                    projects[i].sprint = "완료됨"
+                }
+            }
+
+            // 태스크 수 및 진행률
+            let tasks = kanbanTasks.filter { $0.projectId == pid }
+            let done = tasks.filter { $0.status == .done }.count
+            projects[i].totalTasks = tasks.count
+            projects[i].doneTasks = done
+            projects[i].progress = tasks.isEmpty ? 0 : Double(done) / Double(tasks.count) * 100
+        }
+
+        // selectedProject도 동기화
+        if let sel = selectedProject,
+           let updated = projects.first(where: { $0.id == sel.id }) {
+            selectedProject = updated
+        }
+    }
+
+    func sprintProgress(for sprint: Sprint) -> Double {
+        let sprintTasks = kanbanTasks.filter { $0.projectId == sprint.projectId && $0.sprint == sprint.name }
+        guard !sprintTasks.isEmpty else { return 0 }
+        let done = sprintTasks.filter { $0.status == .done }.count
+        return Double(done) / Double(sprintTasks.count) * 100
+    }
+
+    func tasks(for sprint: Sprint) -> [TaskItem] {
+        kanbanTasks.filter { $0.projectId == sprint.projectId && $0.sprint == sprint.name }
     }
 
     // MARK: - Computed: All Tags
@@ -85,6 +173,7 @@ final class AppStore: ObservableObject {
 
     func addTask(_ task: TaskItem) {
         kanbanTasks.append(task)
+        syncProjectFields()
     }
 
     func addActivity(_ activity: ActivityItem) {
@@ -100,6 +189,7 @@ final class AppStore: ObservableObject {
         if let idx = kanbanTasks.firstIndex(where: { $0.id == id }) {
             kanbanTasks[idx].status = newStatus
         }
+        syncProjectFields()
     }
 
     func updateTaskPriority(id: UUID, newPriority: TaskItem.Priority) {
@@ -110,6 +200,7 @@ final class AppStore: ObservableObject {
 
     func deleteTask(id: UUID) {
         kanbanTasks.removeAll { $0.id == id }
+        syncProjectFields()
     }
 
     func deleteProject(id: UUID) {
@@ -154,7 +245,8 @@ final class AppStore: ObservableObject {
             activities: activities,
             teamMembers: teamMembers,
             burndownIdeal: burndownIdeal,
-            burndownActual: burndownActual
+            burndownActual: burndownActual,
+            sprints: sprints
         )
     }
 
@@ -167,6 +259,7 @@ final class AppStore: ObservableObject {
         teamMembers = data.teamMembers
         burndownIdeal = data.burndownIdeal
         burndownActual = data.burndownActual
+        sprints = data.sprints
         isRestoring = false
         // restore 후 1초간 auto-save 억제 (Combine 비동기 이벤트 방어)
         restoreCooldownUntil = Date().addingTimeInterval(1.0)
@@ -215,6 +308,9 @@ final class AppStore: ObservableObject {
             restore(from: data)
         }
 
+        // 기존 project.sprint / task.sprint 데이터를 Sprint 객체로 마이그레이션
+        migrateSprintsIfNeeded()
+
         // 초기 프로젝트 파일 생성 + 감시 시작
         fileManager.saveAll(projects: projects, tasks: kanbanTasks)
         fileManager.onExternalTasksChange = { [weak self] projectId, newTasks in
@@ -230,9 +326,10 @@ final class AppStore: ObservableObject {
             $activities.map { _ in () }.eraseToAnyPublisher(),
             $teamMembers.map { _ in () }.eraseToAnyPublisher(),
             $burndownIdeal.map { _ in () }.eraseToAnyPublisher(),
-            $burndownActual.map { _ in () }.eraseToAnyPublisher()
+            $burndownActual.map { _ in () }.eraseToAnyPublisher(),
+            $sprints.map { _ in () }.eraseToAnyPublisher()
         )
-        .dropFirst(7) // skip initial values from restore
+        .dropFirst(8) // skip initial values from restore
         .sink { [weak self] in self?.save() }
 
         // Monitor iCloud changes
@@ -251,12 +348,63 @@ final class AppStore: ObservableObject {
             }
     }
 
+    // MARK: - Sprint Migration
+
+    /// 기존 project.sprint 및 task.sprint 문자열에서 Sprint 객체를 자동 생성
+    private func migrateSprintsIfNeeded() {
+        var created = false
+        let existingSprintKeys = Set(sprints.map { "\($0.projectId)-\($0.name)" })
+
+        for project in projects {
+            // project.sprint 필드에서 스프린트 이름 수집
+            var sprintNames = Set<String>()
+            if !project.sprint.isEmpty {
+                sprintNames.insert(project.sprint)
+            }
+            // 해당 프로젝트의 태스크에서 스프린트 이름 수집
+            for task in kanbanTasks where task.projectId == project.id {
+                if !task.sprint.isEmpty {
+                    sprintNames.insert(task.sprint)
+                }
+            }
+
+            // 아직 Sprint 객체가 없으면 생성
+            for name in sprintNames {
+                let key = "\(project.id)-\(name)"
+                guard !existingSprintKeys.contains(key) else { continue }
+
+                let sprint = Sprint(
+                    projectId: project.id,
+                    name: name,
+                    startDate: Date(),
+                    endDate: Calendar.current.date(byAdding: .weekOfYear, value: 2, to: Date()) ?? Date(),
+                    isActive: true
+                )
+                sprints.append(sprint)
+                created = true
+            }
+        }
+
+        if created {
+            print("[AppStore] 🔄 기존 스프린트 데이터 마이그레이션 완료 (\(sprints.count)개)")
+            syncProjectFields()
+            // 쿨다운 이후 저장되도록 잠시 대기
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                self?.save()
+            }
+        } else {
+            // 마이그레이션 없어도 프로젝트 필드 동기화
+            syncProjectFields()
+        }
+    }
+
     /// 외부 도구가 tasks.json을 수정했을 때 해당 프로젝트의 태스크만 교체
     private func applyExternalTasks(projectId: UUID, tasks: [TaskItem]) {
         isRestoring = true
         kanbanTasks.removeAll { $0.projectId == projectId }
         kanbanTasks.append(contentsOf: tasks)
         isRestoring = false
+        syncProjectFields()
         // CloudKit에도 동기화
         syncManager.save(snapshot())
     }
