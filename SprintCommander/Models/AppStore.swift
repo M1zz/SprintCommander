@@ -68,9 +68,12 @@ final class AppStore: ObservableObject {
         tasks(for: status).reduce(0) { $0 + $1.storyPoints }
     }
 
+    var activeSprints: [Sprint] {
+        sprints.filter { $0.isActive }
+    }
+
     var activeSprintNames: [String] {
-        let active = sprints.filter { $0.isActive }
-        return active.map { sprint in
+        activeSprints.map { sprint in
             let projectName = projects.first(where: { $0.id == sprint.projectId })?.name ?? ""
             return "\(sprint.name) · \(projectName)"
         }
@@ -336,8 +339,9 @@ final class AppStore: ObservableObject {
         // 기존 project.sprint / task.sprint 데이터를 Sprint 객체로 마이그레이션
         migrateSprintsIfNeeded()
 
-        // 외부 project.json에서 최신 정보 로드 (앱 시작 시)
+        // 외부 project.json / tasks.json에서 최신 정보 로드 (앱 시작 시)
         loadProjectFilesOnStartup()
+        loadTaskFilesOnStartup()
 
         // 초기 프로젝트 파일 생성 + 감시 시작
         fileManager.saveAll(projects: projects, tasks: kanbanTasks)
@@ -478,6 +482,23 @@ final class AppStore: ObservableObject {
                 print("[AppStore] 🚀 시작 시 project.json 로드: \(projects[i].name)")
             }
         }
+    }
+
+    /// 앱 시작 시 각 프로젝트의 tasks.json을 읽어 누락된 태스크 병합
+    private func loadTaskFilesOnStartup() {
+        for project in projects {
+            guard let fileTasks = fileManager.loadTasks(for: project),
+                  !fileTasks.isEmpty else { continue }
+
+            let existingIds = Set(kanbanTasks.filter { $0.projectId == project.id }.map { $0.id })
+            let newTasks = fileTasks.filter { !existingIds.contains($0.id) }
+
+            if !newTasks.isEmpty {
+                kanbanTasks.append(contentsOf: newTasks)
+                print("[AppStore] 🚀 시작 시 tasks.json 로드: \(project.name) (+\(newTasks.count)개)")
+            }
+        }
+        syncProjectFields()
     }
 
     private func applyExternalProject(projectId: UUID, patch: ProjectPatch) {
