@@ -311,6 +311,9 @@ final class AppStore: ObservableObject {
         // 기존 project.sprint / task.sprint 데이터를 Sprint 객체로 마이그레이션
         migrateSprintsIfNeeded()
 
+        // 외부 project.json에서 최신 정보 로드 (앱 시작 시)
+        loadProjectFilesOnStartup()
+
         // 초기 프로젝트 파일 생성 + 감시 시작
         fileManager.saveAll(projects: projects, tasks: kanbanTasks)
         fileManager.onExternalTasksChange = { [weak self] projectId, newTasks in
@@ -410,6 +413,27 @@ final class AppStore: ObservableObject {
         syncProjectFields()
         // CloudKit에도 동기화
         syncManager.save(snapshot())
+    }
+
+    /// 앱 시작 시 각 프로젝트의 project.json을 읽어 최신 정보 적용
+    private func loadProjectFilesOnStartup() {
+        for i in projects.indices {
+            guard let patch = fileManager.loadProject(for: projects[i]) else { continue }
+            
+            // 롤백 방지: patch가 더 최신일 때만 적용
+            if let patchDate = patch.lastModified, patchDate > projects[i].lastModified {
+                if let name = patch.name { projects[i].name = name }
+                if let icon = patch.icon { projects[i].icon = icon }
+                if let desc = patch.desc { projects[i].desc = desc }
+                if let version = patch.version { projects[i].version = version }
+                if let landingURL = patch.landingURL { projects[i].landingURL = landingURL }
+                if let appStoreURL = patch.appStoreURL { projects[i].appStoreURL = appStoreURL }
+                if let pricing = patch.pricing { projects[i].pricing = pricing }
+                if let languages = patch.languages { projects[i].languages = languages }
+                projects[i].lastModified = patchDate
+                print("[AppStore] 🚀 시작 시 project.json 로드: \(projects[i].name)")
+            }
+        }
     }
 
     private func applyExternalProject(projectId: UUID, patch: ProjectPatch) {
