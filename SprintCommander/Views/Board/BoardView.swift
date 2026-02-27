@@ -146,9 +146,13 @@ struct BoardView: View {
                             ProjectTaskGroup(
                                 project: group.project,
                                 tasks: group.tasks,
+                                sprintsForTask: { store.availableSprintsForTask($0) },
                                 onTaskTap: { selectedTask = $0 },
                                 onStatusChange: { task, newStatus in
                                     store.updateTaskStatus(id: task.id, newStatus: newStatus)
+                                },
+                                onSprintAssign: { task, sprintName in
+                                    store.assignTaskToSprint(taskId: task.id, sprintName: sprintName)
                                 },
                                 onDelete: { task in
                                     store.deleteTask(id: task.id)
@@ -210,8 +214,10 @@ private struct StatusChip: View {
 private struct ProjectTaskGroup: View {
     let project: Project?
     let tasks: [TaskItem]
+    var sprintsForTask: ((TaskItem) -> [Sprint])? = nil
     var onTaskTap: ((TaskItem) -> Void)? = nil
     var onStatusChange: ((TaskItem, TaskItem.TaskStatus) -> Void)? = nil
+    var onSprintAssign: ((TaskItem, String?) -> Void)? = nil
     var onDelete: ((TaskItem) -> Void)? = nil
 
     var body: some View {
@@ -253,13 +259,40 @@ private struct ProjectTaskGroup: View {
                 TaskRow(task: task, projectColor: project?.color ?? .gray)
                     .onTapGesture { onTaskTap?(task) }
                     .contextMenu {
-                        ForEach(TaskItem.TaskStatus.allCases, id: \.self) { newStatus in
-                            Button {
-                                onStatusChange?(task, newStatus)
-                            } label: {
-                                Label(newStatus.rawValue, systemImage: newStatus == .done ? "checkmark.circle" : "arrow.right.circle")
+                        Section("상태 변경") {
+                            ForEach(TaskItem.TaskStatus.allCases, id: \.self) { newStatus in
+                                Button {
+                                    onStatusChange?(task, newStatus)
+                                } label: {
+                                    Label(newStatus.rawValue, systemImage: newStatus == .done ? "checkmark.circle" : "arrow.right.circle")
+                                }
                             }
                         }
+
+                        let availableSprints = sprintsForTask?(task) ?? []
+                        if !availableSprints.isEmpty {
+                            Menu("스프린트 배정") {
+                                ForEach(availableSprints) { sprint in
+                                    Button {
+                                        onSprintAssign?(task, sprint.name)
+                                    } label: {
+                                        HStack {
+                                            Text(sprint.name)
+                                            if task.sprint == sprint.name {
+                                                Image(systemName: "checkmark")
+                                            }
+                                        }
+                                    }
+                                }
+                                if !task.sprint.isEmpty {
+                                    Divider()
+                                    Button("스프린트 해제") {
+                                        onSprintAssign?(task, nil)
+                                    }
+                                }
+                            }
+                        }
+
                         Divider()
                         Button(role: .destructive) {
                             onDelete?(task)

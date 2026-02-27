@@ -113,6 +113,27 @@ final class AppStore: ObservableObject {
         syncProjectFields()
     }
 
+    func reactivateSprint(id: UUID) {
+        if let idx = sprints.firstIndex(where: { $0.id == id }) {
+            sprints[idx].isActive = true
+        }
+        syncProjectFields()
+    }
+
+    func hideSprint(id: UUID) {
+        if let idx = sprints.firstIndex(where: { $0.id == id }) {
+            sprints[idx].isHidden = true
+        }
+        syncProjectFields()
+    }
+
+    func unhideSprint(id: UUID) {
+        if let idx = sprints.firstIndex(where: { $0.id == id }) {
+            sprints[idx].isHidden = false
+        }
+        syncProjectFields()
+    }
+
     /// project.sprint / project.progress / project.totalTasks / project.doneTasks 를
     /// 실제 Sprint 객체 및 태스크 데이터와 동기화
     func syncProjectFields() {
@@ -193,6 +214,46 @@ final class AppStore: ObservableObject {
             kanbanTasks[idx].status = newStatus
         }
         syncProjectFields()
+    }
+
+    // MARK: - Sprint Assignment
+
+    /// 태스크의 프로젝트에 속한 활성 스프린트 목록 반환
+    func availableSprintsForTask(_ task: TaskItem) -> [Sprint] {
+        guard let projectId = task.projectId else { return [] }
+        return sprints.filter { $0.projectId == projectId && $0.isActive }
+    }
+
+    /// 태스크를 스프린트에 배정 (nil이면 해제). 백로그 상태이면 자동으로 "할 일"로 승격
+    func assignTaskToSprint(taskId: UUID, sprintName: String?) {
+        guard let idx = kanbanTasks.firstIndex(where: { $0.id == taskId }) else { return }
+        let name = sprintName ?? ""
+        kanbanTasks[idx].sprint = name
+
+        // 백로그 → 스프린트 배정 시 자동으로 "할 일"로 승격
+        if !name.isEmpty && kanbanTasks[idx].status == .backlog {
+            kanbanTasks[idx].status = .todo
+        }
+
+        syncProjectFields()
+
+        // 활동 로그
+        let taskTitle = kanbanTasks[idx].title
+        if name.isEmpty {
+            addActivity(ActivityItem(
+                icon: "📋",
+                text: "스프린트에서 해제되었습니다",
+                highlightedText: taskTitle,
+                time: "방금 전"
+            ))
+        } else {
+            addActivity(ActivityItem(
+                icon: "🏃",
+                text: "\(name) 스프린트에 배정되었습니다",
+                highlightedText: taskTitle,
+                time: "방금 전"
+            ))
+        }
     }
 
     func updateTaskPriority(id: UUID, newPriority: TaskItem.Priority) {
@@ -316,9 +377,11 @@ final class AppStore: ObservableObject {
             for i in projects.indices {
                 let project = projects[i]
                 guard !project.sourcePath.isEmpty else { continue }
-                if let result = await scanner.scan(path: project.sourcePath),
+                let resolvedPath = (project.sourcePath as NSString).expandingTildeInPath
+                if let result = await scanner.scan(path: resolvedPath),
                    !result.version.isEmpty,
-                   result.version != project.version {
+                   result.version != project.version,
+                   Self.isVersionHigher(result.version, than: project.version) {
                     await MainActor.run {
                         projects[i].version = result.version
                     }
@@ -329,6 +392,21 @@ final class AppStore: ObservableObject {
                 await MainActor.run { save() }
             }
         }
+    }
+
+    /// 시맨틱 버전 비교: new가 current보다 높으면 true
+    private static func isVersionHigher(_ new: String, than current: String) -> Bool {
+        if current.isEmpty { return true }
+        let newParts = new.split(separator: ".").compactMap { Int($0) }
+        let curParts = current.split(separator: ".").compactMap { Int($0) }
+        let count = max(newParts.count, curParts.count)
+        for i in 0..<count {
+            let n = i < newParts.count ? newParts[i] : 0
+            let c = i < curParts.count ? curParts[i] : 0
+            if n > c { return true }
+            if n < c { return false }
+        }
+        return false
     }
 
     func loadAndStartSync() {

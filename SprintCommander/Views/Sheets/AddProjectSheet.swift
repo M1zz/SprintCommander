@@ -230,7 +230,7 @@ struct AddProjectSheet: View {
         scanResult = nil
 
         Task {
-            let result = await scanner.scan(path: sourcePath)
+            let result = await scanner.scan(path: (sourcePath as NSString).expandingTildeInPath)
             await MainActor.run {
                 isScanning = false
                 scanResult = result

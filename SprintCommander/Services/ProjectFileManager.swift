@@ -147,8 +147,9 @@ final class ProjectFileManager {
     /// 프로젝트 소스 경로 내 .sprintcommander/ 디렉토리 URL 반환
     private func sprintDir(for project: Project) -> URL? {
         guard !project.sourcePath.isEmpty else { return nil }
-        let sourceURL = URL(fileURLWithPath: project.sourcePath)
-        guard FileManager.default.fileExists(atPath: project.sourcePath) else { return nil }
+        let resolvedPath = (project.sourcePath as NSString).expandingTildeInPath
+        let sourceURL = URL(fileURLWithPath: resolvedPath)
+        guard FileManager.default.fileExists(atPath: resolvedPath) else { return nil }
 
         let dir = sourceURL.appendingPathComponent(Self.dirName)
         ensureDir(dir)

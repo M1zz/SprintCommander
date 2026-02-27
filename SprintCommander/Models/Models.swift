@@ -2,29 +2,33 @@ import SwiftUI
 import Foundation
 
 // MARK: - Relative Path Helpers
+/// 기존 ~/ 상대경로 → 절대경로 마이그레이션 전용
 private enum PathHelper {
-    static let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+    static let realHomeDir: String = {
+        let home = NSHomeDirectory()
+        // 샌드박스: /Users/username/Library/Containers/com.xxx/Data → /Users/username
+        if let range = home.range(of: "/Library/Containers/") {
+            return String(home[..<range.lowerBound])
+        }
+        return home
+    }()
 
-    /// /Users/누구든/... → ~/...  (여러 머신에서 사용 가능하도록)
-    static func toRelative(_ path: String) -> String {
-        guard !path.isEmpty else { return "" }
-        // 이미 ~로 시작하면 그대로
-        if path.hasPrefix("~") { return path }
-        // /Users/username/... 패턴 → ~/...
-        if path.hasPrefix("/Users/") {
-            let components = path.dropFirst("/Users/".count).split(separator: "/", maxSplits: 1)
-            if components.count >= 1 {
-                // /Users/username/Documents/... → ~/Documents/...
-                let afterUsername = components.count > 1 ? "/" + components[1] : ""
-                return "~" + afterUsername
-            }
+    /// 기존 데이터에 저장된 ~/... 또는 중첩 컨테이너 경로를 절대경로로 변환
+    /// 이미 절대경로(/Users/...)면 그대로 반환
+    static func migrateToAbsolute(_ path: String) -> String {
+        // 이미 절대경로면 그대로
+        if path.hasPrefix("/") { return path }
+        // 중첩된 컨테이너 경로 복구
+        var cleaned = path
+        if cleaned.contains("/Library/Containers/"),
+           let range = cleaned.range(of: "/Documents/workspace/") {
+            cleaned = "~" + cleaned[range.lowerBound...]
+        }
+        // ~/... → /Users/username/...
+        if cleaned.hasPrefix("~") {
+            return realHomeDir + cleaned.dropFirst(1)
         }
         return path
-    }
-
-    static func toAbsolute(_ path: String) -> String {
-        guard path.hasPrefix("~") else { return path }
-        return homeDir + path.dropFirst(1)
     }
 }
 
@@ -145,7 +149,7 @@ struct Project: Identifiable, Hashable, Codable {
         try c.encode(color.toHex(), forKey: .colorHex)
         try c.encode(startWeek, forKey: .startWeek)
         try c.encode(durationWeeks, forKey: .durationWeeks)
-        try c.encode(PathHelper.toRelative(sourcePath), forKey: .sourcePath)
+        try c.encode(sourcePath, forKey: .sourcePath)
         try c.encode(version, forKey: .version)
         try c.encode(landingURL, forKey: .landingURL)
         try c.encode(appStoreURL, forKey: .appStoreURL)
@@ -169,7 +173,7 @@ struct Project: Identifiable, Hashable, Codable {
         startWeek = try c.decode(Int.self, forKey: .startWeek)
         durationWeeks = try c.decode(Int.self, forKey: .durationWeeks)
         let raw = try c.decode(String.self, forKey: .sourcePath)
-        sourcePath = PathHelper.toAbsolute(raw)
+        sourcePath = PathHelper.migrateToAbsolute(raw)
         version = try c.decodeIfPresent(String.self, forKey: .version) ?? ""
         landingURL = try c.decodeIfPresent(String.self, forKey: .landingURL) ?? ""
         appStoreURL = try c.decodeIfPresent(String.self, forKey: .appStoreURL) ?? ""
@@ -195,9 +199,10 @@ struct Sprint: Identifiable, Hashable, Codable {
     var startDate: Date
     var endDate: Date
     var isActive: Bool
+    var isHidden: Bool
     var targetVersion: String
 
-    init(id: UUID = UUID(), projectId: UUID, name: String, goal: String = "", startDate: Date = Date(), endDate: Date = Calendar.current.date(byAdding: .weekOfYear, value: 2, to: Date()) ?? Date(), isActive: Bool = true, targetVersion: String = "") {
+    init(id: UUID = UUID(), projectId: UUID, name: String, goal: String = "", startDate: Date = Date(), endDate: Date = Calendar.current.date(byAdding: .weekOfYear, value: 2, to: Date()) ?? Date(), isActive: Bool = true, isHidden: Bool = false, targetVersion: String = "") {
         self.id = id
         self.projectId = projectId
         self.name = name
@@ -205,6 +210,7 @@ struct Sprint: Identifiable, Hashable, Codable {
         self.startDate = startDate
         self.endDate = endDate
         self.isActive = isActive
+        self.isHidden = isHidden
         self.targetVersion = targetVersion
     }
 
@@ -217,6 +223,7 @@ struct Sprint: Identifiable, Hashable, Codable {
         startDate = try c.decode(Date.self, forKey: .startDate)
         endDate = try c.decode(Date.self, forKey: .endDate)
         isActive = try c.decode(Bool.self, forKey: .isActive)
+        isHidden = try c.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
         targetVersion = try c.decodeIfPresent(String.self, forKey: .targetVersion) ?? ""
     }
 

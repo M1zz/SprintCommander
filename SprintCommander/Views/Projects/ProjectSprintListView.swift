@@ -16,11 +16,15 @@ struct ProjectSprintListView: View {
     }
 
     private var activeSprints: [Sprint] {
-        projectSprints.filter { $0.isActive }
+        projectSprints.filter { $0.isActive && !$0.isHidden }
     }
 
     private var completedSprints: [Sprint] {
-        projectSprints.filter { !$0.isActive }
+        projectSprints.filter { !$0.isActive && !$0.isHidden }
+    }
+
+    private var hiddenSprints: [Sprint] {
+        projectSprints.filter { $0.isHidden }
     }
 
     private var projectTasks: [TaskItem] { store.tasks(for: project.id) }
@@ -58,6 +62,11 @@ struct ProjectSprintListView: View {
                     // Completed sprints
                     if !completedSprints.isEmpty {
                         sprintSection(title: "완료된 스프린트", sprints: completedSprints, isEmpty: false)
+                    }
+
+                    // Hidden sprints
+                    if !hiddenSprints.isEmpty {
+                        hiddenSprintSection
                     }
                 }
                 .padding(28)
@@ -131,8 +140,16 @@ struct ProjectSprintListView: View {
             Spacer()
 
             HStack(spacing: 8) {
-                Button { showEditProject = true } label: {
-                    Image(systemName: "pencil")
+                Menu {
+                    Button { showEditProject = true } label: {
+                        Label("프로젝트 편집", systemImage: "pencil")
+                    }
+                    Divider()
+                    Button(role: .destructive) { showDeleteConfirm = true } label: {
+                        Label("프로젝트 삭제", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
                         .font(.system(size: 12))
                         .foregroundColor(.white.opacity(0.6))
                         .frame(width: 30, height: 30)
@@ -144,16 +161,6 @@ struct ProjectSprintListView: View {
                 PrimaryButton(title: "새 스프린트", icon: "plus") {
                     showAddSprint = true
                 }
-
-                Button { showDeleteConfirm = true } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 12))
-                        .foregroundColor(Color(hex: "EF4444").opacity(0.6))
-                        .frame(width: 30, height: 30)
-                        .background(Color(hex: "EF4444").opacity(0.1))
-                        .cornerRadius(6)
-                }
-                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 28)
@@ -444,6 +451,54 @@ struct ProjectSprintListView: View {
         }
     }
 
+    // MARK: - Hidden Sprint Section
+
+    @State private var showHiddenSprints = false
+
+    private var hiddenSprintSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showHiddenSprints.toggle()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: showHiddenSprints ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.3))
+                    Image(systemName: "eye.slash")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.3))
+                    Text("숨겨진 스프린트")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.35))
+                    Text("\(hiddenSprints.count)")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.25))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.white.opacity(0.06))
+                        .cornerRadius(8)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if showHiddenSprints {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 300, maximum: 500), spacing: 12)], spacing: 12) {
+                    ForEach(hiddenSprints) { sprint in
+                        SprintCard(sprint: sprint, project: project)
+                            .opacity(0.6)
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    store.selectedSprint = sprint
+                                }
+                            }
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Empty State
 
     private var emptyState: some View {
@@ -483,6 +538,7 @@ struct SprintCard: View {
     let project: Project
     @State private var isHovered = false
     @State private var showDeleteConfirm = false
+    @State private var showEditSprint = false
 
     private var sprintTasks: [TaskItem] {
         store.tasks(for: sprint)
@@ -544,13 +600,40 @@ struct SprintCard: View {
 
                     // Context menu trigger
                     Menu {
+                        Button {
+                            showEditSprint = true
+                        } label: {
+                            Label("편집", systemImage: "pencil")
+                        }
                         if sprint.isActive {
                             Button {
                                 store.completeSprint(id: sprint.id)
                             } label: {
                                 Label("스프린트 완료", systemImage: "checkmark.circle")
                             }
+                        } else {
+                            Button {
+                                store.reactivateSprint(id: sprint.id)
+                            } label: {
+                                Label("다시 진행", systemImage: "arrow.counterclockwise")
+                            }
                         }
+                        if sprint.isHidden {
+                            Button {
+                                store.unhideSprint(id: sprint.id)
+                            } label: {
+                                Label("다시 보이기", systemImage: "eye")
+                            }
+                        } else {
+                            Button {
+                                store.hideSprint(id: sprint.id)
+                            } label: {
+                                Label("감추기", systemImage: "eye.slash")
+                            }
+                        }
+
+                        Divider()
+
                         Button(role: .destructive) {
                             showDeleteConfirm = true
                         } label: {
@@ -642,6 +725,9 @@ struct SprintCard: View {
         .scaleEffect(isHovered ? 1.01 : 1.0)
         .animation(.easeOut(duration: 0.2), value: isHovered)
         .onHover { isHovered = $0 }
+        .sheet(isPresented: $showEditSprint) {
+            EditSprintSheet(sprint: sprint, project: project)
+        }
         .alert("스프린트 삭제", isPresented: $showDeleteConfirm) {
             Button("삭제", role: .destructive) {
                 store.deleteSprint(id: sprint.id)

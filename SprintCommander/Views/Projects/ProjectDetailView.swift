@@ -10,7 +10,10 @@ struct ProjectDetailView: View {
     @State private var showDeleteConfirm = false
     @State private var showEditProject = false
     @State private var sprintFilter: String? = nil // nil = 전체, "_unassigned" = 미배정, else = sprint name
-    @State private var showProjectInfo = false
+    @State private var showProjectInfo = true
+    @State private var editingSprint: Sprint? = nil
+    @State private var deletingSprintId: UUID? = nil
+    @State private var showSprintDeleteConfirm = false
 
     private var projectSprints: [Sprint] {
         store.sprints(for: project.id)
@@ -71,6 +74,9 @@ struct ProjectDetailView: View {
         .sheet(item: $selectedTask) { task in
             TaskDetailSheet(task: task)
         }
+        .sheet(item: $editingSprint) { sprint in
+            EditSprintSheet(sprint: sprint, project: project)
+        }
         .alert("프로젝트 삭제", isPresented: $showDeleteConfirm) {
             Button("삭제", role: .destructive) {
                 store.deleteProject(id: project.id)
@@ -86,6 +92,22 @@ struct ProjectDetailView: View {
             Button("취소", role: .cancel) {}
         } message: {
             Text("\"\(project.name)\" 프로젝트를 삭제하시겠습니까?")
+        }
+        .alert("스프린트 삭제", isPresented: $showSprintDeleteConfirm) {
+            Button("삭제", role: .destructive) {
+                if let id = deletingSprintId {
+                    store.deleteSprint(id: id)
+                    sprintFilter = nil
+                }
+            }
+            Button("취소", role: .cancel) {}
+        } message: {
+            if let id = deletingSprintId,
+               let sprint = store.sprints.first(where: { $0.id == id }) {
+                Text("\"\(sprint.name)\" 스프린트를 삭제하시겠습니까?")
+            } else {
+                Text("스프린트를 삭제하시겠습니까?")
+            }
         }
         .onAppear {
             // Sidebar에서 selectedSprint로 진입한 경우 필터 설정
@@ -146,8 +168,16 @@ struct ProjectDetailView: View {
             Spacer()
 
             HStack(spacing: 8) {
-                Button { showEditProject = true } label: {
-                    Image(systemName: "pencil")
+                Menu {
+                    Button { showEditProject = true } label: {
+                        Label("프로젝트 편집", systemImage: "pencil")
+                    }
+                    Divider()
+                    Button(role: .destructive) { showDeleteConfirm = true } label: {
+                        Label("프로젝트 삭제", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
                         .font(.system(size: 12))
                         .foregroundColor(.white.opacity(0.6))
                         .frame(width: 30, height: 30)
@@ -190,16 +220,6 @@ struct ProjectDetailView: View {
                     .cornerRadius(7)
                 }
                 .buttonStyle(.plain)
-
-                Button { showDeleteConfirm = true } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 12))
-                        .foregroundColor(Color(hex: "EF4444").opacity(0.6))
-                        .frame(width: 30, height: 30)
-                        .background(Color(hex: "EF4444").opacity(0.1))
-                        .cornerRadius(6)
-                }
-                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 28)
@@ -238,8 +258,8 @@ struct ProjectDetailView: View {
                     }
                 }
 
-                // Completed sprint chips (collapsed)
-                let completedSprints = projectSprints.filter { !$0.isActive }
+                // Completed sprint chips (collapsed, excluding hidden)
+                let completedSprints = projectSprints.filter { !$0.isActive && !$0.isHidden }
                 if !completedSprints.isEmpty {
                     Menu {
                         ForEach(completedSprints) { sprint in
@@ -363,6 +383,55 @@ struct ProjectDetailView: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            Menu {
+                Button { editingSprint = sprint } label: {
+                    Label("편집", systemImage: "pencil")
+                }
+                if sprint.isActive {
+                    Button {
+                        store.completeSprint(id: sprint.id)
+                        sprintFilter = nil
+                    } label: {
+                        Label("스프린트 완료", systemImage: "checkmark.circle")
+                    }
+                } else {
+                    Button {
+                        store.reactivateSprint(id: sprint.id)
+                    } label: {
+                        Label("다시 진행", systemImage: "arrow.counterclockwise")
+                    }
+                }
+                if sprint.isHidden {
+                    Button {
+                        store.unhideSprint(id: sprint.id)
+                    } label: {
+                        Label("다시 보이기", systemImage: "eye")
+                    }
+                } else {
+                    Button {
+                        store.hideSprint(id: sprint.id)
+                        sprintFilter = nil
+                    } label: {
+                        Label("감추기", systemImage: "eye.slash")
+                    }
+                }
+                Divider()
+                Button(role: .destructive) {
+                    deletingSprintId = sprint.id
+                    showSprintDeleteConfirm = true
+                } label: {
+                    Label("삭제", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 10))
+                    .foregroundColor(.white.opacity(0.4))
+                    .frame(width: 22, height: 22)
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(4)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -437,6 +506,8 @@ struct ProjectDetailView: View {
                     languagesCard
                     // Card 4: 프로젝트 메타
                     projectMetaCard
+                    // Card 5: 릴리즈 노트
+                    releaseNotesCard
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
@@ -449,7 +520,32 @@ struct ProjectDetailView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.white.opacity(0.6))
 
-            infoDetailRow(icon: "📁", label: "소스 경로", value: project.sourcePath.isEmpty ? "미설정" : shortenPath(project.sourcePath), isEmpty: project.sourcePath.isEmpty)
+            if !project.sourcePath.isEmpty {
+                Button {
+                    NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: project.sourcePath)
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("📁")
+                            .font(.system(size: 11))
+                        Text("소스 경로")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.white.opacity(0.4))
+                        Spacer()
+                        HStack(spacing: 3) {
+                            Text(shortenPath(project.sourcePath))
+                                .font(.system(size: 11))
+                                .foregroundColor(Color(hex: "4FACFE"))
+                                .lineLimit(1)
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 8))
+                                .foregroundColor(Color(hex: "4FACFE").opacity(0.6))
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                infoDetailRow(icon: "📁", label: "소스 경로", value: "미설정", isEmpty: true)
+            }
 
             if !project.landingURL.isEmpty {
                 urlRow(icon: "🌐", label: "랜딩 페이지", url: project.landingURL)
@@ -547,6 +643,67 @@ struct ProjectDetailView: View {
             infoDetailRow(icon: "🏁", label: "활성 스프린트", value: activeSprints.isEmpty ? "없음" : "\(activeSprints.count)개 — \(activeNames)", isEmpty: activeSprints.isEmpty)
 
             infoDetailRow(icon: "📦", label: "총 스프린트", value: "\(projectSprints.count)개", isEmpty: projectSprints.isEmpty)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.04))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    private var releaseNotesCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("릴리즈 노트")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white.opacity(0.6))
+
+            if !project.version.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "shippingbox.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(Color(hex: "34D399"))
+                    Text("v\(project.version)")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.9))
+                }
+
+                let completed = allProjectTasks.filter { $0.status == .done }
+                if completed.isEmpty {
+                    Text("완료된 태스크가 없습니다")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.2))
+                } else {
+                    ForEach(completed.prefix(5)) { task in
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(Color(hex: "34D399").opacity(0.6))
+                            Text(task.title)
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.6))
+                                .lineLimit(1)
+                        }
+                    }
+                    if completed.count > 5 {
+                        Text("외 \(completed.count - 5)개 완료")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.25))
+                    }
+                }
+            } else {
+                VStack(spacing: 6) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.15))
+                    Text("버전 정보가 없습니다")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.2))
+                }
+                .frame(maxWidth: .infinity, minHeight: 60)
+            }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
