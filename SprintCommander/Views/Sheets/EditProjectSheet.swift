@@ -232,6 +232,7 @@ struct EditProjectSheet: View {
                     )
                     updated.languages = Self.availableLanguages.filter { selectedLanguages.contains($0) }
                     updated.color = AppStore.palette[selectedColorIndex]
+                    updated.lastModified = Date()  // 롤백 방지용 타임스탬프 갱신
                     store.updateProject(updated)
                     if store.selectedProject?.id == project.id {
                         store.selectedProject = updated

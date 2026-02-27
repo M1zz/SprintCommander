@@ -414,6 +414,16 @@ final class AppStore: ObservableObject {
 
     private func applyExternalProject(projectId: UUID, patch: ProjectPatch) {
         guard let idx = projects.firstIndex(where: { $0.id == projectId }) else { return }
+        
+        // 롤백 방지: patch의 lastModified가 현재보다 과거면 무시
+        if let patchDate = patch.lastModified {
+            let currentDate = projects[idx].lastModified
+            if patchDate < currentDate {
+                print("[AppStore] ⚠️ 과거 버전 감지 → 무시: \(projects[idx].name) (patch: \(patchDate), current: \(currentDate))")
+                return
+            }
+        }
+        
         isRestoring = true
         if let name = patch.name { projects[idx].name = name }
         if let icon = patch.icon { projects[idx].icon = icon }
@@ -423,6 +433,7 @@ final class AppStore: ObservableObject {
         if let appStoreURL = patch.appStoreURL { projects[idx].appStoreURL = appStoreURL }
         if let pricing = patch.pricing { projects[idx].pricing = pricing }
         if let languages = patch.languages { projects[idx].languages = languages }
+        if let patchDate = patch.lastModified { projects[idx].lastModified = patchDate }
         isRestoring = false
         print("[AppStore] 외부 프로젝트 변경 적용: \(projects[idx].name)")
         // CloudKit에도 동기화

@@ -63,9 +63,10 @@ struct ProjectPatch: Codable {
     var appStoreURL: String?
     var pricing: PricingInfo?
     var languages: [String]?
+    var lastModified: Date?  // 롤백 방지용 타임스탬프
 
     enum CodingKeys: String, CodingKey {
-        case id, name, icon, desc, version, landingURL, appStoreURL, pricing, languages
+        case id, name, icon, desc, version, landingURL, appStoreURL, pricing, languages, lastModified
     }
 }
 
@@ -88,8 +89,9 @@ struct Project: Identifiable, Hashable, Codable {
     var appStoreURL: String
     var pricing: PricingInfo
     var languages: [String]
+    var lastModified: Date  // 롤백 방지용 타임스탬프
 
-    init(id: UUID = UUID(), name: String, icon: String, desc: String, progress: Double, sprint: String, totalTasks: Int, doneTasks: Int, color: Color, startWeek: Int = 0, durationWeeks: Int = 4, sourcePath: String = "", version: String = "", landingURL: String = "", appStoreURL: String = "", pricing: PricingInfo = PricingInfo(), languages: [String] = []) {
+    init(id: UUID = UUID(), name: String, icon: String, desc: String, progress: Double, sprint: String, totalTasks: Int, doneTasks: Int, color: Color, startWeek: Int = 0, durationWeeks: Int = 4, sourcePath: String = "", version: String = "", landingURL: String = "", appStoreURL: String = "", pricing: PricingInfo = PricingInfo(), languages: [String] = [], lastModified: Date = Date()) {
         self.id = id
         self.name = name
         self.icon = icon
@@ -107,6 +109,7 @@ struct Project: Identifiable, Hashable, Codable {
         self.appStoreURL = appStoreURL
         self.pricing = pricing
         self.languages = languages
+        self.lastModified = lastModified
     }
 
     var progressPercent: String {
@@ -117,7 +120,7 @@ struct Project: Identifiable, Hashable, Codable {
     enum CodingKeys: String, CodingKey {
         case id, name, icon, desc, progress, sprint, totalTasks, doneTasks
         case colorHex, startWeek, durationWeeks, sourcePath, version
-        case landingURL, appStoreURL, pricing, languages
+        case landingURL, appStoreURL, pricing, languages, lastModified
     }
 
     func encode(to encoder: Encoder) throws {
@@ -139,6 +142,7 @@ struct Project: Identifiable, Hashable, Codable {
         try c.encode(appStoreURL, forKey: .appStoreURL)
         try c.encode(pricing, forKey: .pricing)
         try c.encode(languages, forKey: .languages)
+        try c.encode(lastModified, forKey: .lastModified)
     }
 
     init(from decoder: Decoder) throws {
@@ -169,6 +173,7 @@ struct Project: Identifiable, Hashable, Codable {
             pricing = PricingInfo()
         }
         languages = try c.decodeIfPresent([String].self, forKey: .languages) ?? []
+        lastModified = try c.decodeIfPresent(Date.self, forKey: .lastModified) ?? Date()
     }
 }
 
