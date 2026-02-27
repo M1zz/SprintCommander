@@ -10,6 +10,7 @@ struct ProjectDetailView: View {
     @State private var showDeleteConfirm = false
     @State private var showEditProject = false
     @State private var sprintFilter: String? = nil // nil = 전체, "_unassigned" = 미배정, else = sprint name
+    @State private var showProjectInfo = false
 
     private var projectSprints: [Sprint] {
         store.sprints(for: project.id)
@@ -48,6 +49,9 @@ struct ProjectDetailView: View {
 
                     // Stats Row
                     statsRow
+
+                    // Project Info (collapsible)
+                    projectInfoSection
 
                     // Kanban Board
                     kanbanSection
@@ -315,6 +319,7 @@ struct ProjectDetailView: View {
                 Text(sprint.name)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.white.opacity(0.8))
+                VersionBadge(version: sprint.targetVersion, color: project.color)
             }
 
             if !sprint.goal.isEmpty {
@@ -399,6 +404,237 @@ struct ProjectDetailView: View {
         )
     }
 
+    // MARK: - Project Info Section
+
+    private var projectInfoSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Collapsible header
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showProjectInfo.toggle()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    SectionHeaderView(title: "프로젝트 상세 정보")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.3))
+                        .rotationEffect(.degrees(showProjectInfo ? 90 : 0))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if showProjectInfo {
+                // 2x2 card grid
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                    // Card 1: 경로 & 링크
+                    pathAndLinksCard
+                    // Card 2: 가격 정보
+                    pricingCard
+                    // Card 3: 지원 언어
+                    languagesCard
+                    // Card 4: 프로젝트 메타
+                    projectMetaCard
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private var pathAndLinksCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("경로 & 링크")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white.opacity(0.6))
+
+            infoDetailRow(icon: "📁", label: "소스 경로", value: project.sourcePath.isEmpty ? "미설정" : shortenPath(project.sourcePath), isEmpty: project.sourcePath.isEmpty)
+
+            if !project.landingURL.isEmpty {
+                urlRow(icon: "🌐", label: "랜딩 페이지", url: project.landingURL)
+            } else {
+                infoDetailRow(icon: "🌐", label: "랜딩 페이지", value: "미설정", isEmpty: true)
+            }
+
+            if !project.appStoreURL.isEmpty {
+                urlRow(icon: "🛍️", label: "앱스토어", url: project.appStoreURL)
+            } else {
+                infoDetailRow(icon: "🛍️", label: "앱스토어", value: "미설정", isEmpty: true)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.04))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    private var pricingCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("가격 정보")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white.opacity(0.6))
+
+            if project.pricing.isEmpty {
+                Text("가격 미설정")
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.2))
+            } else {
+                pricingDetailRow(icon: "⬇️", label: "다운로드", value: project.pricing.downloadPrice)
+                pricingDetailRow(icon: "📅", label: "월 구독", value: project.pricing.monthlyPrice)
+                pricingDetailRow(icon: "📅", label: "연 구독", value: project.pricing.yearlyPrice)
+                pricingDetailRow(icon: "♾️", label: "평생", value: project.pricing.lifetimePrice)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.04))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    private var languagesCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("지원 언어 (\(project.languages.count)개)")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white.opacity(0.6))
+
+            if project.languages.isEmpty {
+                Text("다국어 미설정")
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.2))
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
+                    ForEach(project.languages, id: \.self) { lang in
+                        Text(lang)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.white.opacity(0.7))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(6)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.04))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    private var projectMetaCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("프로젝트 메타")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white.opacity(0.6))
+
+            infoDetailRow(icon: "🕐", label: "최종 수정", value: formatDate(project.lastModified), isEmpty: false)
+
+            let activeNames = activeSprints.map(\.name).joined(separator: ", ")
+            infoDetailRow(icon: "🏁", label: "활성 스프린트", value: activeSprints.isEmpty ? "없음" : "\(activeSprints.count)개 — \(activeNames)", isEmpty: activeSprints.isEmpty)
+
+            infoDetailRow(icon: "📦", label: "총 스프린트", value: "\(projectSprints.count)개", isEmpty: projectSprints.isEmpty)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.04))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    // MARK: - Info Helpers
+
+    @ViewBuilder
+    private func infoDetailRow(icon: String, label: String, value: String, isEmpty: Bool) -> some View {
+        HStack(spacing: 6) {
+            Text(icon)
+                .font(.system(size: 11))
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.4))
+            Spacer()
+            Text(value)
+                .font(.system(size: 11))
+                .foregroundColor(isEmpty ? .white.opacity(0.2) : .white.opacity(0.7))
+                .lineLimit(1)
+        }
+    }
+
+    @ViewBuilder
+    private func urlRow(icon: String, label: String, url: String) -> some View {
+        HStack(spacing: 6) {
+            Text(icon)
+                .font(.system(size: 11))
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.4))
+            Spacer()
+            Button {
+                if let u = URL(string: url) {
+                    NSWorkspace.shared.open(u)
+                }
+            } label: {
+                HStack(spacing: 3) {
+                    Text(url)
+                        .font(.system(size: 10))
+                        .foregroundColor(Color(hex: "4FACFE"))
+                        .lineLimit(1)
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 8))
+                        .foregroundColor(Color(hex: "4FACFE").opacity(0.6))
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func pricingDetailRow(icon: String, label: String, value: String) -> some View {
+        if !value.isEmpty {
+            HStack(spacing: 6) {
+                Text(icon)
+                    .font(.system(size: 11))
+                Text(label)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.4))
+                Spacer()
+                Text(value)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+        }
+    }
+
+    private func shortenPath(_ path: String) -> String {
+        let home = NSHomeDirectory()
+        if path.hasPrefix(home) {
+            return "~" + path.dropFirst(home.count)
+        }
+        return path
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy.M.d HH:mm"
+        return formatter.string(from: date)
+    }
+
     // MARK: - Kanban Section
 
     private var kanbanSection: some View {
@@ -433,9 +669,13 @@ struct ProjectDetailView: View {
                         status: status,
                         tasks: tasks,
                         projectColor: project.color,
+                        sprintsForTask: { store.availableSprintsForTask($0) },
                         onTaskTap: { selectedTask = $0 },
                         onStatusChange: { task, newStatus in
                             store.updateTaskStatus(id: task.id, newStatus: newStatus)
+                        },
+                        onSprintAssign: { task, sprintName in
+                            store.assignTaskToSprint(taskId: task.id, sprintName: sprintName)
                         },
                         onDelete: { task in
                             store.deleteTask(id: task.id)
@@ -454,8 +694,10 @@ private struct DetailKanbanColumn: View {
     let status: TaskItem.TaskStatus
     let tasks: [TaskItem]
     let projectColor: Color
+    var sprintsForTask: ((TaskItem) -> [Sprint])? = nil
     var onTaskTap: ((TaskItem) -> Void)? = nil
     var onStatusChange: ((TaskItem, TaskItem.TaskStatus) -> Void)? = nil
+    var onSprintAssign: ((TaskItem, String?) -> Void)? = nil
     var onDelete: ((TaskItem) -> Void)? = nil
 
     var body: some View {
@@ -500,13 +742,40 @@ private struct DetailKanbanColumn: View {
                             DetailTaskCard(task: task, accentColor: projectColor)
                                 .onTapGesture { onTaskTap?(task) }
                                 .contextMenu {
-                                    ForEach(TaskItem.TaskStatus.allCases, id: \.self) { newStatus in
-                                        Button {
-                                            onStatusChange?(task, newStatus)
-                                        } label: {
-                                            Label(newStatus.rawValue, systemImage: newStatus == .done ? "checkmark.circle" : "arrow.right.circle")
+                                    Section("상태 변경") {
+                                        ForEach(TaskItem.TaskStatus.allCases, id: \.self) { newStatus in
+                                            Button {
+                                                onStatusChange?(task, newStatus)
+                                            } label: {
+                                                Label(newStatus.rawValue, systemImage: newStatus == .done ? "checkmark.circle" : "arrow.right.circle")
+                                            }
                                         }
                                     }
+
+                                    let availableSprints = sprintsForTask?(task) ?? []
+                                    if !availableSprints.isEmpty {
+                                        Menu("스프린트 배정") {
+                                            ForEach(availableSprints) { sprint in
+                                                Button {
+                                                    onSprintAssign?(task, sprint.name)
+                                                } label: {
+                                                    HStack {
+                                                        Text(sprint.name)
+                                                        if task.sprint == sprint.name {
+                                                            Image(systemName: "checkmark")
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            if !task.sprint.isEmpty {
+                                                Divider()
+                                                Button("스프린트 해제") {
+                                                    onSprintAssign?(task, nil)
+                                                }
+                                            }
+                                        }
+                                    }
+
                                     Divider()
                                     Button(role: .destructive) {
                                         onDelete?(task)

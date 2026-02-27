@@ -195,8 +195,9 @@ struct Sprint: Identifiable, Hashable, Codable {
     var startDate: Date
     var endDate: Date
     var isActive: Bool
+    var targetVersion: String
 
-    init(id: UUID = UUID(), projectId: UUID, name: String, goal: String = "", startDate: Date = Date(), endDate: Date = Calendar.current.date(byAdding: .weekOfYear, value: 2, to: Date()) ?? Date(), isActive: Bool = true) {
+    init(id: UUID = UUID(), projectId: UUID, name: String, goal: String = "", startDate: Date = Date(), endDate: Date = Calendar.current.date(byAdding: .weekOfYear, value: 2, to: Date()) ?? Date(), isActive: Bool = true, targetVersion: String = "") {
         self.id = id
         self.projectId = projectId
         self.name = name
@@ -204,6 +205,19 @@ struct Sprint: Identifiable, Hashable, Codable {
         self.startDate = startDate
         self.endDate = endDate
         self.isActive = isActive
+        self.targetVersion = targetVersion
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        projectId = try c.decode(UUID.self, forKey: .projectId)
+        name = try c.decode(String.self, forKey: .name)
+        goal = try c.decodeIfPresent(String.self, forKey: .goal) ?? ""
+        startDate = try c.decode(Date.self, forKey: .startDate)
+        endDate = try c.decode(Date.self, forKey: .endDate)
+        isActive = try c.decode(Bool.self, forKey: .isActive)
+        targetVersion = try c.decodeIfPresent(String.self, forKey: .targetVersion) ?? ""
     }
 
     var isCompleted: Bool {

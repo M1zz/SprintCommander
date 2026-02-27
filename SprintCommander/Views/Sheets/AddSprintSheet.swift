@@ -8,6 +8,7 @@ struct AddSprintSheet: View {
 
     @State private var name = ""
     @State private var goal = ""
+    @State private var targetVersion = ""
     @State private var startDate = Date()
     @State private var endDate = Calendar.current.date(byAdding: .weekOfYear, value: 2, to: Date()) ?? Date()
     @State private var duration = 2 // weeks
@@ -80,6 +81,9 @@ struct AddSprintSheet: View {
                                     .stroke(Color.white.opacity(0.1), lineWidth: 1)
                             )
                     }
+
+                    // Target version
+                    FormField(label: "목표 버전", text: $targetVersion, placeholder: project.version)
 
                     // Duration picker
                     VStack(alignment: .leading, spacing: 6) {
@@ -161,7 +165,8 @@ struct AddSprintSheet: View {
                         goal: goal,
                         startDate: startDate,
                         endDate: endDate,
-                        isActive: true
+                        isActive: true,
+                        targetVersion: targetVersion
                     )
                     store.addSprint(sprint)
                     store.addActivity(ActivityItem(
@@ -175,7 +180,7 @@ struct AddSprintSheet: View {
             }
             .padding(20)
         }
-        .frame(width: 420, height: 520)
+        .frame(width: 420, height: 560)
         .background(Color(hex: "1A1A2E"))
     }
 }

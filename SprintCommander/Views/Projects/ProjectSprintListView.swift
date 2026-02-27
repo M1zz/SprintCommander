@@ -515,6 +515,8 @@ struct SprintCard: View {
                     Text(sprint.name)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.white.opacity(0.9))
+
+                    VersionBadge(version: sprint.targetVersion, color: project.color)
                 }
 
                 Spacer()
