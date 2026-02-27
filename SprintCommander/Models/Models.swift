@@ -5,10 +5,19 @@ import Foundation
 private enum PathHelper {
     static let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
 
+    /// /Users/누구든/... → ~/...  (여러 머신에서 사용 가능하도록)
     static func toRelative(_ path: String) -> String {
         guard !path.isEmpty else { return "" }
-        if path.hasPrefix(homeDir) {
-            return "~" + path.dropFirst(homeDir.count)
+        // 이미 ~로 시작하면 그대로
+        if path.hasPrefix("~") { return path }
+        // /Users/username/... 패턴 → ~/...
+        if path.hasPrefix("/Users/") {
+            let components = path.dropFirst("/Users/".count).split(separator: "/", maxSplits: 1)
+            if components.count >= 1 {
+                // /Users/username/Documents/... → ~/Documents/...
+                let afterUsername = components.count > 1 ? "/" + components[1] : ""
+                return "~" + afterUsername
+            }
         }
         return path
     }
