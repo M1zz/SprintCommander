@@ -18,11 +18,15 @@ final class ProjectFileManager {
 
     /// 외부에서 tasks.json이 수정되었을 때 호출 (projectId, 새 태스크 배열)
     var onExternalTasksChange: ((UUID, [TaskItem]) -> Void)?
+    
+    /// 외부에서 project.json이 수정되었을 때 호출 (projectId, 업데이트된 필드들)
+    var onExternalProjectChange: ((UUID, ProjectPatch) -> Void)?
 
     // MARK: - Internal state
 
     private var watchers: [UUID: DispatchSourceFileSystemObject] = [:]
     private var lastWriteDates: [UUID: Date] = [:]
+    private var lastProjectWriteDates: [UUID: Date] = [:]
 
     // MARK: - Codecs
 
@@ -57,6 +61,7 @@ final class ProjectFileManager {
         // project.json
         if let data = try? enc.encode(project) {
             try? data.write(to: dir.appendingPathComponent("project.json"), options: .atomic)
+            lastProjectWriteDates[project.id] = Date()
         }
 
         // tasks.json
@@ -80,6 +85,13 @@ final class ProjectFileManager {
         let url = dir.appendingPathComponent("tasks.json")
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? dec.decode([TaskItem].self, from: data)
+    }
+
+    func loadProject(for project: Project) -> ProjectPatch? {
+        guard let dir = sprintDir(for: project) else { return nil }
+        let url = dir.appendingPathComponent("project.json")
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? dec.decode(ProjectPatch.self, from: data)
     }
 
     // MARK: - Public: File Watching
@@ -151,21 +163,34 @@ final class ProjectFileManager {
     }
 
     private func checkForExternalChange(projectId: UUID, dir: URL) {
+        // tasks.json 체크
         let tasksURL = dir.appendingPathComponent("tasks.json")
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: tasksURL.path),
+           let mtime = attrs[.modificationDate] as? Date {
+            let lastWrite = lastWriteDates[projectId] ?? .distantPast
+            if mtime.timeIntervalSince(lastWrite) >= 0.5,
+               let data = try? Data(contentsOf: tasksURL),
+               let tasks = try? dec.decode([TaskItem].self, from: data) {
+                print("[ProjectFiles] 외부 변경 감지 (tasks): \(dir.deletingLastPathComponent().lastPathComponent) (\(tasks.count)개 태스크)")
+                DispatchQueue.main.async { [weak self] in
+                    self?.onExternalTasksChange?(projectId, tasks)
+                }
+            }
+        }
 
-        guard let attrs = try? FileManager.default.attributesOfItem(atPath: tasksURL.path),
-              let mtime = attrs[.modificationDate] as? Date else { return }
-
-        // 우리가 마지막으로 쓴 시점 이후인지 확인 (0.5초 마진)
-        if let lastWrite = lastWriteDates[projectId],
-           mtime.timeIntervalSince(lastWrite) < 0.5 { return }
-
-        guard let data = try? Data(contentsOf: tasksURL),
-              let tasks = try? dec.decode([TaskItem].self, from: data) else { return }
-
-        print("[ProjectFiles] 외부 변경 감지: \(dir.deletingLastPathComponent().lastPathComponent) (\(tasks.count)개 태스크)")
-        DispatchQueue.main.async { [weak self] in
-            self?.onExternalTasksChange?(projectId, tasks)
+        // project.json 체크
+        let projectURL = dir.appendingPathComponent("project.json")
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: projectURL.path),
+           let mtime = attrs[.modificationDate] as? Date {
+            let lastWrite = lastProjectWriteDates[projectId] ?? .distantPast
+            if mtime.timeIntervalSince(lastWrite) >= 0.5,
+               let data = try? Data(contentsOf: projectURL),
+               let patch = try? dec.decode(ProjectPatch.self, from: data) {
+                print("[ProjectFiles] 외부 변경 감지 (project): \(dir.deletingLastPathComponent().lastPathComponent)")
+                DispatchQueue.main.async { [weak self] in
+                    self?.onExternalProjectChange?(projectId, patch)
+                }
+            }
         }
     }
 
@@ -174,7 +199,7 @@ final class ProjectFileManager {
     private func writeSchema(to dir: URL, project: Project) {
         let schema: [String: Any] = [
             "_description": "SprintCommander 프로젝트 데이터",
-            "_note": "tasks.json을 수정하면 SprintCommander 앱에 자동 반영됩니다.",
+            "_note": "tasks.json과 project.json을 수정하면 SprintCommander 앱에 자동 반영됩니다.",
             "_project": project.name,
             "_projectId": project.id.uuidString,
             "task_fields": [
@@ -188,7 +213,23 @@ final class ProjectFileManager {
                 "assigneeColorHex": "string - 6자리 hex 색상 (예: 4FACFE, 34D399, A78BFA, FB923C)",
                 "status": "string - 백로그 | 할 일 | 진행 중 | 완료"
             ],
-            "example": [
+            "project_fields": [
+                "id": "\(project.id.uuidString) (변경 불가, 필수 포함)",
+                "name": "string - 프로젝트 이름",
+                "icon": "string - 이모지 아이콘",
+                "desc": "string - 프로젝트 설명",
+                "version": "string - 앱 버전 (예: 1.0.5)",
+                "landingURL": "string - 랜딩 페이지 URL",
+                "appStoreURL": "string - 앱스토어 링크",
+                "pricing": [
+                    "downloadPrice": "string - 다운로드 가격 (예: 무료, $4.99)",
+                    "monthlyPrice": "string - 월 구독가",
+                    "yearlyPrice": "string - 연 구독가",
+                    "lifetimePrice": "string - 평생 구매가"
+                ] as [String: String],
+                "languages": "string[] - 지원 언어 코드 (예: [\"ko\", \"en\", \"ja\"])"
+            ] as [String: Any],
+            "task_example": [
                 "id": "550e8400-e29b-41d4-a716-446655440000",
                 "projectId": project.id.uuidString,
                 "title": "예시 태스크",
@@ -200,10 +241,16 @@ final class ProjectFileManager {
                 "status": "백로그"
             ] as [String: Any],
             "usage": [
-                "1. tasks.json 파일을 읽으세요",
-                "2. 태스크를 추가/수정/삭제하세요",
-                "3. 저장하면 SprintCommander 앱에 자동 반영됩니다",
-                "4. 새 태스크의 id는 새 UUID를, projectId는 \(project.id.uuidString)를 사용하세요"
+                "tasks.json 수정:",
+                "  1. tasks.json 파일을 읽으세요",
+                "  2. 태스크를 추가/수정/삭제하세요",
+                "  3. 저장하면 SprintCommander 앱에 자동 반영됩니다",
+                "",
+                "project.json 수정:",
+                "  1. project.json 파일을 읽으세요",
+                "  2. 위 project_fields 중 원하는 필드를 수정하세요",
+                "  3. id는 반드시 포함하고 변경하지 마세요",
+                "  4. 저장하면 SprintCommander 앱에 자동 반영됩니다"
             ]
         ]
 

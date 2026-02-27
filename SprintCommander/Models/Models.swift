@@ -51,6 +51,24 @@ struct PricingInfo: Codable, Hashable {
     }
 }
 
+// MARK: - ProjectPatch (외부 수정용)
+/// project.json에서 외부 수정 가능한 필드만 포함
+struct ProjectPatch: Codable {
+    var id: UUID
+    var name: String?
+    var icon: String?
+    var desc: String?
+    var version: String?
+    var landingURL: String?
+    var appStoreURL: String?
+    var pricing: PricingInfo?
+    var languages: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, icon, desc, version, landingURL, appStoreURL, pricing, languages
+    }
+}
+
 // MARK: - Project
 struct Project: Identifiable, Hashable, Codable {
     let id: UUID

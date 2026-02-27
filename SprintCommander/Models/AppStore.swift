@@ -316,6 +316,9 @@ final class AppStore: ObservableObject {
         fileManager.onExternalTasksChange = { [weak self] projectId, newTasks in
             self?.applyExternalTasks(projectId: projectId, tasks: newTasks)
         }
+        fileManager.onExternalProjectChange = { [weak self] projectId, patch in
+            self?.applyExternalProject(projectId: projectId, patch: patch)
+        }
         fileManager.startWatchingAll(projects: projects)
 
         // Auto-save on any data change
@@ -405,6 +408,23 @@ final class AppStore: ObservableObject {
         kanbanTasks.append(contentsOf: tasks)
         isRestoring = false
         syncProjectFields()
+        // CloudKit에도 동기화
+        syncManager.save(snapshot())
+    }
+
+    private func applyExternalProject(projectId: UUID, patch: ProjectPatch) {
+        guard let idx = projects.firstIndex(where: { $0.id == projectId }) else { return }
+        isRestoring = true
+        if let name = patch.name { projects[idx].name = name }
+        if let icon = patch.icon { projects[idx].icon = icon }
+        if let desc = patch.desc { projects[idx].desc = desc }
+        if let version = patch.version { projects[idx].version = version }
+        if let landingURL = patch.landingURL { projects[idx].landingURL = landingURL }
+        if let appStoreURL = patch.appStoreURL { projects[idx].appStoreURL = appStoreURL }
+        if let pricing = patch.pricing { projects[idx].pricing = pricing }
+        if let languages = patch.languages { projects[idx].languages = languages }
+        isRestoring = false
+        print("[AppStore] 외부 프로젝트 변경 적용: \(projects[idx].name)")
         // CloudKit에도 동기화
         syncManager.save(snapshot())
     }

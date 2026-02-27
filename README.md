@@ -63,17 +63,17 @@ SprintCommander/
 
 ## Claude Code 연동
 
-SprintCommander는 프로젝트 소스 디렉토리 내 `.sprintcommander/tasks.json`을 실시간 감시합니다.
-Claude Code가 이 파일을 수정하면 칸반 보드에 즉시 반영됩니다.
+SprintCommander는 프로젝트 소스 디렉토리 내 `.sprintcommander/` 파일들을 실시간 감시합니다.
+Claude Code가 `tasks.json` 또는 `project.json`을 수정하면 앱에 즉시 반영됩니다.
 
 ### 동작 구조
 
 ```
 프로젝트 소스 디렉토리/
 └── .sprintcommander/
-    ├── _schema.json     ← Claude가 참고할 태스크 스키마 + projectId
-    ├── project.json     ← 프로젝트 메타 (읽기 전용)
-    └── tasks.json       ← 칸반 태스크 배열 (Claude가 수정)
+    ├── _schema.json     ← Claude가 참고할 스키마 + projectId
+    ├── project.json     ← 프로젝트 메타 (외부 수정 가능)
+    └── tasks.json       ← 칸반 태스크 배열 (외부 수정 가능)
 ```
 
 SprintCommander에서 프로젝트를 추가하면 `.sprintcommander/` 디렉토리가 자동 생성됩니다.
@@ -155,6 +155,53 @@ Claude가 소스 코드를 분석하여 TODO/FIXME, 버그, 개선점, 누락 �
     "status": "백로그"
   }
 ]
+```
+
+</details>
+
+### 프로젝트 메타 포맷 (project.json)
+
+프로젝트 정보를 외부에서 수정할 수 있습니다. `id`는 필수이며 변경하면 안 됩니다.
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `id` | string | 프로젝트 UUID (필수, 변경 불가) |
+| `name` | string | 프로젝트 이름 |
+| `icon` | string | 이모지 아이콘 |
+| `desc` | string | 프로젝트 설명 |
+| `version` | string | 앱 버전 (예: 1.0.5) |
+| `landingURL` | string | 랜딩 페이지 URL |
+| `appStoreURL` | string | 앱스토어 링크 |
+| `pricing` | object | 가격 정보 (아래 참조) |
+| `languages` | string[] | 지원 언어 코드 (예: `["ko", "en"]`) |
+
+**pricing 객체:**
+
+| 필드 | 설명 |
+|------|------|
+| `downloadPrice` | 다운로드 가격 (예: `무료`, `$4.99`) |
+| `monthlyPrice` | 월 구독가 |
+| `yearlyPrice` | 연 구독가 |
+| `lifetimePrice` | 평생 구매가 |
+
+<details>
+<summary>project.json 예시</summary>
+
+```json
+{
+  "id": "E466F765-85A1-46BB-A647-2B1077F64EF3",
+  "name": "LeaveWise",
+  "icon": "📅",
+  "desc": "스마트 연차 관리 & 휴가 추천 앱",
+  "version": "2.0.0",
+  "landingURL": "https://m1zz.github.io/LeaveWise/",
+  "appStoreURL": "https://apps.apple.com/app/id6755983135",
+  "pricing": {
+    "downloadPrice": "무료",
+    "lifetimePrice": "$4.99"
+  },
+  "languages": ["ko", "en", "ja", "zh-Hans"]
+}
 ```
 
 </details>
