@@ -275,6 +275,31 @@ final class AppStore: ObservableObject {
         print("[AppStore] 💾 데이터 변경 감지 → 저장 (projects: \(projects.count), tasks: \(kanbanTasks.count))")
         syncManager.save(snapshot())
         fileManager.saveAll(projects: projects, tasks: kanbanTasks)
+        exportProjectsMetadata()
+    }
+
+    // MARK: - 프로젝트 메타데이터 내보내기
+    
+    private var metadataExportURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/SprintCommander/projects.json")
+    }
+    
+    /// 프로젝트 메타데이터를 ~/Documents/SprintCommander/projects.json에 저장
+    private func exportProjectsMetadata() {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        
+        guard let data = try? encoder.encode(projects) else { return }
+        
+        let dir = metadataExportURL.deletingLastPathComponent()
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: dir.path) {
+            try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        try? data.write(to: metadataExportURL, options: .atomic)
+        print("[AppStore] 📄 프로젝트 메타데이터 내보내기: \(metadataExportURL.path)")
     }
 
     // MARK: - Version Refresh
