@@ -248,7 +248,7 @@ struct EditProjectSheet: View {
             }
             .padding(20)
         }
-        .frame(width: 420, height: 800)
+        .frame(width: 420, height: 700)
         .background(Color(hex: "1A1A2E"))
     }
 
