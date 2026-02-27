@@ -445,17 +445,36 @@ final class AppStore: ObservableObject {
         for i in projects.indices {
             guard let patch = fileManager.loadProject(for: projects[i]) else { continue }
             
-            // 롤백 방지: patch가 더 최신일 때만 적용
-            if let patchDate = patch.lastModified, patchDate > projects[i].lastModified {
-                if let name = patch.name { projects[i].name = name }
-                if let icon = patch.icon { projects[i].icon = icon }
-                if let desc = patch.desc { projects[i].desc = desc }
-                if let version = patch.version { projects[i].version = version }
-                if let landingURL = patch.landingURL { projects[i].landingURL = landingURL }
-                if let appStoreURL = patch.appStoreURL { projects[i].appStoreURL = appStoreURL }
-                if let pricing = patch.pricing { projects[i].pricing = pricing }
-                if let languages = patch.languages { projects[i].languages = languages }
-                projects[i].lastModified = patchDate
+            var updated = false
+            // 빈 필드만 채우기 (외부에서 채워진 값 적용)
+            if let landingURL = patch.landingURL, !landingURL.isEmpty, projects[i].landingURL.isEmpty {
+                projects[i].landingURL = landingURL
+                updated = true
+            }
+            if let appStoreURL = patch.appStoreURL, !appStoreURL.isEmpty, projects[i].appStoreURL.isEmpty {
+                projects[i].appStoreURL = appStoreURL
+                updated = true
+            }
+            if let pricing = patch.pricing, !pricing.isEmpty, projects[i].pricing.isEmpty {
+                projects[i].pricing = pricing
+                updated = true
+            }
+            if let languages = patch.languages, !languages.isEmpty, projects[i].languages.isEmpty {
+                projects[i].languages = languages
+                updated = true
+            }
+            // 아이콘/설명은 외부 값이 있고 앱 값이 기본값이면 적용
+            if let icon = patch.icon, !icon.isEmpty, projects[i].icon == "📱" {
+                projects[i].icon = icon
+                updated = true
+            }
+            if let desc = patch.desc, !desc.isEmpty, projects[i].desc.contains("Xcode Project") {
+                projects[i].desc = desc
+                updated = true
+            }
+            
+            if updated {
+                projects[i].lastModified = Date()
                 print("[AppStore] 🚀 시작 시 project.json 로드: \(projects[i].name)")
             }
         }
