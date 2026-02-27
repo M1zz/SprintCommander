@@ -289,58 +289,77 @@ struct ProjectSprintListView: View {
             checkBadge(
                 label: "랜딩 페이지",
                 value: project.landingURL,
-                doneColor: Color(hex: "34D399")
+                doneColor: Color(hex: "34D399"),
+                isURL: true
             )
             checkBadge(
                 label: "앱스토어",
                 value: project.appStoreURL,
-                doneColor: Color(hex: "6366F1")
+                doneColor: Color(hex: "6366F1"),
+                isURL: true
             )
             checkBadge(
                 label: "가격",
                 value: project.pricing.summary,
-                doneColor: Color(hex: "4FACFE")
+                doneColor: Color(hex: "4FACFE"),
+                isURL: false
             )
             checkBadge(
                 label: "다국어",
                 value: project.languages.isEmpty ? "" : project.languages.joined(separator: ", "),
-                doneColor: Color(hex: "F472B6")
+                doneColor: Color(hex: "F472B6"),
+                isURL: false
             )
         }
         .padding(.top, 4)
     }
 
-    private func checkBadge(label: String, value: String, doneColor: Color) -> some View {
+    private func checkBadge(label: String, value: String, doneColor: Color, isURL: Bool) -> some View {
         let isDone = !value.isEmpty
-        return HStack(spacing: 8) {
-            Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 12))
-                .foregroundColor(isDone ? doneColor : .white.opacity(0.2))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(label)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(isDone ? 0.7 : 0.3))
-                if isDone {
-                    Text(value)
-                        .font(.system(size: 10))
-                        .foregroundColor(doneColor.opacity(0.8))
-                        .lineLimit(1)
-                } else {
-                    Text("미설정")
-                        .font(.system(size: 10))
-                        .foregroundColor(.white.opacity(0.2))
+        let canOpen = isURL && isDone
+        
+        return Button {
+            if canOpen, let url = URL(string: value) {
+                NSWorkspace.shared.open(url)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 12))
+                    .foregroundColor(isDone ? doneColor : .white.opacity(0.2))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(label)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white.opacity(isDone ? 0.7 : 0.3))
+                    if isDone {
+                        Text(value)
+                            .font(.system(size: 10))
+                            .foregroundColor(doneColor.opacity(0.8))
+                            .lineLimit(1)
+                    } else {
+                        Text("미설정")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.2))
+                    }
+                }
+                Spacer()
+                if canOpen {
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 9))
+                        .foregroundColor(doneColor.opacity(0.5))
                 }
             }
-            Spacer()
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(isDone ? doneColor.opacity(0.08) : Color.white.opacity(0.03))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isDone ? doneColor.opacity(0.15) : Color.white.opacity(0.04), lineWidth: 1)
+            )
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(isDone ? doneColor.opacity(0.08) : Color.white.opacity(0.03))
-        .cornerRadius(8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(isDone ? doneColor.opacity(0.15) : Color.white.opacity(0.04), lineWidth: 1)
-        )
+        .buttonStyle(.plain)
+        .help(canOpen ? "클릭하여 열기" : "")
     }
 
     private func shortenPath(_ path: String) -> String {
