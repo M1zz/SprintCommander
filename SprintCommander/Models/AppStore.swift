@@ -286,6 +286,13 @@ final class AppStore: ObservableObject {
         }
     }
 
+    func updateSprintDates(id: UUID, startDate: Date, endDate: Date) {
+        if let idx = sprints.firstIndex(where: { $0.id == id }) {
+            sprints[idx].startDate = startDate
+            sprints[idx].endDate = endDate
+        }
+    }
+
     // MARK: - 필터링
     func filteredTasks(for status: TaskItem.TaskStatus, priorityFilter: TaskItem.Priority? = nil, tagFilter: String? = nil) -> [TaskItem] {
         var result = tasks(for: status)
@@ -421,6 +428,9 @@ final class AppStore: ObservableObject {
         loadProjectFilesOnStartup()
         loadTaskFilesOnStartup()
 
+        // 외부 tasks.json에서 새 스프린트 이름이 있으면 Sprint 객체 자동 생성
+        migrateSprintsIfNeeded()
+
         // 초기 프로젝트 파일 생성 + 감시 시작
         fileManager.saveAll(projects: projects, tasks: kanbanTasks)
         fileManager.onExternalTasksChange = { [weak self] projectId, newTasks in
@@ -463,18 +473,21 @@ final class AppStore: ObservableObject {
 
     // MARK: - Sprint Migration
 
-    /// 기존 project.sprint 및 task.sprint 문자열에서 Sprint 객체를 자동 생성
+    /// 태스크의 sprint 필드에서 Sprint 객체를 자동 생성
     private func migrateSprintsIfNeeded() {
+        // 먼저 가짜 스프린트 정리 (표시용 문자열에서 잘못 생성된 것들)
+        let bogusCount = sprints.count
+        sprints.removeAll { $0.name.contains("외 ") || $0.name == "완료됨" }
+        if sprints.count < bogusCount {
+            print("[AppStore] 🧹 잘못된 스프린트 \(bogusCount - sprints.count)개 제거")
+        }
+
         var created = false
         let existingSprintKeys = Set(sprints.map { "\($0.projectId)-\($0.name)" })
 
         for project in projects {
-            // project.sprint 필드에서 스프린트 이름 수집
+            // 태스크의 sprint 필드에서만 스프린트 이름 수집 (project.sprint은 표시용이므로 제외)
             var sprintNames = Set<String>()
-            if !project.sprint.isEmpty {
-                sprintNames.insert(project.sprint)
-            }
-            // 해당 프로젝트의 태스크에서 스프린트 이름 수집
             for task in kanbanTasks where task.projectId == project.id {
                 if !task.sprint.isEmpty {
                     sprintNames.insert(task.sprint)
@@ -517,7 +530,8 @@ final class AppStore: ObservableObject {
         kanbanTasks.removeAll { $0.projectId == projectId }
         kanbanTasks.append(contentsOf: tasks)
         isRestoring = false
-        syncProjectFields()
+        // 새 스프린트 이름이 있으면 Sprint 객체 자동 생성
+        migrateSprintsIfNeeded()
         // CloudKit에도 동기화
         syncManager.save(snapshot())
     }
@@ -615,6 +629,7 @@ final class AppStore: ObservableObject {
     func reloadAllTaskFiles() {
         for project in projects {
             guard let fileTasks = fileManager.loadTasks(for: project) else { continue }
+            // applyExternalTasks 내부에서 migrateSprintsIfNeeded 호출됨
             applyExternalTasks(projectId: project.id, tasks: fileTasks)
         }
         refreshProjectVersions()
