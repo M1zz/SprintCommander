@@ -423,7 +423,7 @@ struct TeamMember: Identifiable, Codable {
 enum SidebarTab: String, CaseIterable, Identifiable {
     case dashboard = "대시보드"
     case timeline = "타임라인"
-    case board = "내 태스크"
+    case board = "진행 중"
     case projects = "프로젝트"
     case analytics = "분석"
 
@@ -433,7 +433,7 @@ enum SidebarTab: String, CaseIterable, Identifiable {
         switch self {
         case .dashboard: return "square.grid.2x2"
         case .timeline: return "calendar.badge.clock"
-        case .board: return "person.crop.rectangle.stack"
+        case .board: return "arrow.triangle.2.circlepath"
         case .projects: return "folder"
         case .analytics: return "chart.xyaxis.line"
         }

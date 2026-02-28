@@ -2,7 +2,7 @@ import SwiftUI
 
 struct BoardView: View {
     @EnvironmentObject var store: AppStore
-    @State private var statusFilter: TaskItem.TaskStatus? = nil
+    @State private var statusFilter: TaskItem.TaskStatus? = .inProgress
     @State private var priorityFilter: TaskItem.Priority? = nil
     @State private var sprintFilter: String? = nil
     @State private var selectedTask: TaskItem? = nil
@@ -53,8 +53,8 @@ struct BoardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             PageHeader(
-                title: "내 태스크",
-                subtitle: "전체 \(store.kanbanTasks.count)개 태스크 · \(store.kanbanTasks.filter { $0.status == .done }.count)개 완료",
+                title: "진행 중",
+                subtitle: "\(store.kanbanTasks.filter { $0.status == .inProgress }.count)개 진행 중 · 전체 \(store.kanbanTasks.count)개",
                 primaryAction: "태스크",
                 primaryIcon: "plus",
                 onPrimary: { showAddTask = true }
