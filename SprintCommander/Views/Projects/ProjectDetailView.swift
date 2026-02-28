@@ -639,10 +639,69 @@ struct ProjectDetailView: View {
 
             infoDetailRow(icon: "🕐", label: "최종 수정", value: formatDate(project.lastModified), isEmpty: false)
 
-            let activeNames = activeSprints.map(\.name).joined(separator: ", ")
-            infoDetailRow(icon: "🏁", label: "활성 스프린트", value: activeSprints.isEmpty ? "없음" : "\(activeSprints.count)개 — \(activeNames)", isEmpty: activeSprints.isEmpty)
+            // 활성 스프린트 - 클릭으로 바로 이동
+            HStack(spacing: 6) {
+                Text("🏁")
+                    .font(.system(size: 11))
+                Text("활성 스프린트")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.4))
+                Spacer()
+                if activeSprints.isEmpty {
+                    Text("없음")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.2))
+                } else {
+                    ForEach(activeSprints) { sprint in
+                        Button {
+                            sprintFilter = sprint.name
+                        } label: {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(project.color)
+                                    .frame(width: 5, height: 5)
+                                Text(sprint.name)
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .foregroundColor(sprintFilter == sprint.name ? .white : .white.opacity(0.6))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(sprintFilter == sprint.name ? project.color.opacity(0.2) : Color.white.opacity(0.06))
+                            .cornerRadius(5)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
 
-            infoDetailRow(icon: "📦", label: "총 스프린트", value: "\(projectSprints.count)개", isEmpty: projectSprints.isEmpty)
+            // 완료 스프린트
+            let completedSprints = projectSprints.filter { !$0.isActive && !$0.isHidden }
+            if !completedSprints.isEmpty {
+                HStack(spacing: 6) {
+                    Text("📦")
+                        .font(.system(size: 11))
+                    Text("완료 스프린트")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white.opacity(0.4))
+                    Spacer()
+                    ForEach(completedSprints) { sprint in
+                        Button {
+                            sprintFilter = sprint.name
+                        } label: {
+                            Text(sprint.name)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(sprintFilter == sprint.name ? .white : .white.opacity(0.4))
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(sprintFilter == sprint.name ? Color.white.opacity(0.12) : Color.white.opacity(0.04))
+                                .cornerRadius(5)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            } else if projectSprints.isEmpty {
+                infoDetailRow(icon: "📦", label: "총 스프린트", value: "없음", isEmpty: true)
+            }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -654,23 +713,87 @@ struct ProjectDetailView: View {
         )
     }
 
-    private var releaseNotesCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("릴리즈 노트")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.white.opacity(0.6))
+    @State private var releaseNotesCopied = false
 
-            if !project.version.isEmpty {
+    /// 릴리즈 노트에 사용할 스프린트 (필터 우선 → 활성 스프린트)
+    private var releaseNoteSprint: Sprint? {
+        if let filterName = sprintFilter, filterName != "_unassigned" {
+            return projectSprints.first(where: { $0.name == filterName })
+        }
+        return activeSprints.first
+    }
+
+    /// 릴리즈 노트에 표시할 버전: 스프린트 targetVersion 우선, 없으면 프로젝트 version
+    private var releaseNoteVersion: String {
+        let tv = releaseNoteSprint?.targetVersion ?? ""
+        return tv.isEmpty ? project.version : tv
+    }
+
+    /// 릴리즈 노트에 표시할 완료 태스크 (스프린트별 필터)
+    private var releaseNoteCompletedTasks: [TaskItem] {
+        let name = releaseNoteSprint?.name ?? ""
+        if name.isEmpty {
+            return allProjectTasks.filter { $0.status == .done }
+        }
+        return allProjectTasks.filter { $0.status == .done && $0.sprint == name }
+    }
+
+    private var releaseNotesCard: some View {
+        let displayVersion = releaseNoteVersion
+        let completed = releaseNoteCompletedTasks
+        let sprintName = releaseNoteSprint?.name ?? ""
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("릴리즈 노트")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.6))
+                Spacer()
+                if !displayVersion.isEmpty && !completed.isEmpty {
+                    Button {
+                        let text = releaseNotesText(version: displayVersion, tasks: completed)
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(text, forType: .string)
+                        withAnimation { releaseNotesCopied = true }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            withAnimation { releaseNotesCopied = false }
+                        }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: releaseNotesCopied ? "checkmark" : "doc.on.doc")
+                                .font(.system(size: 9))
+                            Text(releaseNotesCopied ? "복사됨" : "복사")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(releaseNotesCopied ? Color(hex: "34D399") : .white.opacity(0.4))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(releaseNotesCopied ? Color(hex: "34D399").opacity(0.12) : Color.white.opacity(0.06))
+                        .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if !displayVersion.isEmpty {
                 HStack(spacing: 6) {
                     Image(systemName: "shippingbox.fill")
                         .font(.system(size: 11))
                         .foregroundColor(Color(hex: "34D399"))
-                    Text("v\(project.version)")
+                    Text("v\(displayVersion)")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white.opacity(0.9))
+                    if !sprintName.isEmpty {
+                        Text(sprintName)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.white.opacity(0.3))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(3)
+                    }
                 }
 
-                let completed = allProjectTasks.filter { $0.status == .done }
                 if completed.isEmpty {
                     Text("완료된 태스크가 없습니다")
                         .font(.system(size: 11))
@@ -713,6 +836,14 @@ struct ProjectDetailView: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(Color.white.opacity(0.06), lineWidth: 1)
         )
+    }
+
+    private func releaseNotesText(version: String, tasks: [TaskItem]) -> String {
+        var lines = ["v\(version)", ""]
+        for task in tasks {
+            lines.append("- \(task.title)")
+        }
+        return lines.joined(separator: "\n")
     }
 
     // MARK: - Info Helpers

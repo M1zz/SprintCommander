@@ -19,6 +19,42 @@ struct AddSprintSheet: View {
         return "Sprint \(number)"
     }
 
+    /// 프로젝트 버전 또는 기존 스프린트 targetVersion 중 가장 높은 버전에서 patch +1
+    private var suggestedVersion: String {
+        var versions: [String] = []
+        if !project.version.isEmpty {
+            versions.append(project.version)
+        }
+        for sprint in store.sprints(for: project.id) {
+            if !sprint.targetVersion.isEmpty {
+                versions.append(sprint.targetVersion)
+            }
+        }
+        guard let highest = versions.max(by: { compareVersions($0, $1) }) else {
+            return "1.0.0"
+        }
+        return incrementPatch(highest)
+    }
+
+    private func compareVersions(_ a: String, _ b: String) -> Bool {
+        let ap = a.split(separator: ".").compactMap { Int($0) }
+        let bp = b.split(separator: ".").compactMap { Int($0) }
+        let count = max(ap.count, bp.count)
+        for i in 0..<count {
+            let av = i < ap.count ? ap[i] : 0
+            let bv = i < bp.count ? bp[i] : 0
+            if av != bv { return av < bv }
+        }
+        return false
+    }
+
+    private func incrementPatch(_ version: String) -> String {
+        var parts = version.split(separator: ".").compactMap { Int($0) }
+        while parts.count < 3 { parts.append(0) }
+        parts[2] += 1
+        return parts.map { String($0) }.joined(separator: ".")
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -83,7 +119,7 @@ struct AddSprintSheet: View {
                     }
 
                     // Target version
-                    FormField(label: "목표 버전", text: $targetVersion, placeholder: project.version)
+                    FormField(label: "목표 버전", text: $targetVersion, placeholder: suggestedVersion)
 
                     // Duration picker
                     VStack(alignment: .leading, spacing: 6) {
@@ -182,5 +218,8 @@ struct AddSprintSheet: View {
         }
         .frame(width: 420, height: 560)
         .background(Color(hex: "1A1A2E"))
+        .onAppear {
+            targetVersion = suggestedVersion
+        }
     }
 }

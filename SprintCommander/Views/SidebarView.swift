@@ -191,9 +191,14 @@ struct SprintListItem: View {
 
 // MARK: - Project List Item
 struct ProjectListItem: View {
+    @EnvironmentObject var store: AppStore
     let project: Project
     var isSelected: Bool = false
     @State private var isHovered = false
+
+    private var backlogCount: Int {
+        store.kanbanTasks.filter { $0.projectId == project.id && $0.status == .backlog }.count
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -205,10 +210,14 @@ struct ProjectListItem: View {
                 .foregroundColor(isSelected ? project.color : (isHovered ? .white.opacity(0.8) : .white.opacity(0.5)))
                 .lineLimit(1)
             Spacer()
-            if !project.version.isEmpty {
-                Text("v\(project.version)")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.2))
+            if backlogCount > 0 {
+                Text("\(backlogCount)")
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.4))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(Color.white.opacity(0.08))
+                    .cornerRadius(8)
             }
         }
         .padding(.horizontal, 10)
