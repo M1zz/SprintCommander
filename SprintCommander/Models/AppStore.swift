@@ -611,6 +611,16 @@ final class AppStore: ObservableObject {
         syncManager.fetchLatest()
     }
 
+    /// 모든 프로젝트의 tasks.json을 다시 읽어 최신 상태로 갱신
+    func reloadAllTaskFiles() {
+        for project in projects {
+            guard let fileTasks = fileManager.loadTasks(for: project) else { continue }
+            applyExternalTasks(projectId: project.id, tasks: fileTasks)
+        }
+        refreshProjectVersions()
+        print("[AppStore] 🔄 전체 태스크 새로고침 완료")
+    }
+
     func handleRemoteNotification(userInfo: [String: Any]) {
         syncManager.handleRemoteNotification(userInfo: userInfo)
     }

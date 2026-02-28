@@ -4,6 +4,7 @@ struct DashboardView: View {
     @EnvironmentObject var store: AppStore
     @State private var timelineTab = 0
     @State private var showAddProject = false
+    @State private var isRefreshing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -43,30 +44,56 @@ struct DashboardView: View {
             }
 
             // Stats Grid
+            HStack {
+                Spacer()
+                Button {
+                    isRefreshing = true
+                    store.reloadAllTaskFiles()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        isRefreshing = false
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 11))
+                            .rotationEffect(.degrees(isRefreshing ? 360 : 0))
+                            .animation(isRefreshing ? .linear(duration: 0.5) : .default, value: isRefreshing)
+                        Text("새로고침")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(.white.opacity(0.4))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+            }
+
             HStack(spacing: 14) {
                 StatCard(
                     label: "총 프로젝트", value: "\(store.projects.count)",
-                    color: Color(hex: "4FACFE"), change: "\(store.activeSprintNames.count) 활성", isUp: true,
+                    color: Color(hex: "4FACFE"), change: "\(store.activeSprintNames.count)개 활성 스프린트",
                     accentGradient: [Color(hex: "4FACFE"), Color(hex: "22D3EE")]
                 )
                 StatCard(
                     label: "완료된 태스크", value: "\(store.totalDoneTasks)",
-                    color: Color(hex: "34D399"), change: "\(store.totalTasks) 전체", isUp: true,
+                    color: Color(hex: "34D399"), change: "전체 \(store.totalTasks)개 중",
                     accentGradient: [Color(hex: "34D399"), Color(hex: "6EE7B7")]
                 )
                 StatCard(
                     label: "진행 중", value: "\(store.inProgressCount)",
-                    color: Color(hex: "FB923C"), change: "\(store.kanbanTasks.count) 전체 태스크", isUp: false,
+                    color: Color(hex: "FB923C"), change: "전체 \(store.kanbanTasks.count)개 태스크",
                     accentGradient: [Color(hex: "FB923C"), Color(hex: "FBBF24")]
                 )
                 StatCard(
                     label: "평균 Velocity", value: "\(store.averageVelocity)",
-                    color: Color(hex: "A78BFA"), change: "\(store.velocityData.count) 스프린트", isUp: true,
+                    color: Color(hex: "A78BFA"), change: "\(store.velocityData.count)개 스프린트 기준",
                     accentGradient: [Color(hex: "A78BFA"), Color(hex: "F472B6")]
                 )
                 StatCard(
                     label: "지연 태스크", value: "\(store.overdueCount)",
-                    color: Color(hex: "EF4444"), change: store.overdueCount > 0 ? "주의 필요" : "-", isUp: false,
+                    color: Color(hex: "EF4444"), change: store.overdueCount > 0 ? "확인 필요" : "",
                     accentGradient: [Color(hex: "EF4444"), Color(hex: "FB923C")]
                 )
             }

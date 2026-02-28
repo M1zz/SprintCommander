@@ -101,7 +101,7 @@ struct StatCard: View {
     let value: String
     let color: Color
     let change: String
-    let isUp: Bool
+    var isUp: Bool = true // kept for API compat, no longer affects display
     let accentGradient: [Color]
 
     var body: some View {
@@ -118,12 +118,11 @@ struct StatCard: View {
                 .foregroundColor(color)
                 .padding(.bottom, 6)
 
-            HStack(spacing: 4) {
-                Text(isUp ? "↑" : "↓")
+            if !change.isEmpty && change != "-" {
                 Text(change)
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.35))
             }
-            .font(.system(size: 11))
-            .foregroundColor(isUp ? Color(hex: "34D399") : Color(hex: "EF4444"))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
