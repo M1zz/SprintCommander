@@ -109,6 +109,14 @@ final class AppStore: ObservableObject {
     func completeSprint(id: UUID) {
         if let idx = sprints.firstIndex(where: { $0.id == id }) {
             sprints[idx].isActive = false
+
+            // 스프린트의 targetVersion을 프로젝트 버전에 반영
+            let targetVersion = sprints[idx].targetVersion
+            if !targetVersion.isEmpty,
+               let projIdx = projects.firstIndex(where: { $0.id == sprints[idx].projectId }),
+               Self.isVersionHigher(targetVersion, than: projects[projIdx].version) {
+                projects[projIdx].version = targetVersion
+            }
         }
         syncProjectFields()
     }
