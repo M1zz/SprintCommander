@@ -51,19 +51,25 @@ struct SidebarView: View {
                 }
 
                 // Active Sprints
-                if !store.activeSprintNames.isEmpty {
+                if !store.activeSprints.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
-                        SectionLabel(text: "Active Sprints")
+                        SectionLabel(text: "Active Sprints (\(store.activeSprints.count))")
 
-                        ForEach(Array(store.activeSprintNames.enumerated()), id: \.offset) { index, name in
+                        ForEach(Array(store.activeSprints.enumerated()), id: \.element.id) { index, sprint in
+                            let projectName = store.projects.first(where: { $0.id == sprint.projectId })?.name ?? ""
+                            let sprintColor = store.projects.first(where: { $0.id == sprint.projectId })?.color ?? .gray
+                            let isSelected = store.selectedSprint?.id == sprint.id
                             SprintListItem(
-                                color: index < AppStore.palette.count ? AppStore.palette[index] : .gray,
-                                text: name
+                                color: sprintColor,
+                                text: "\(sprint.name) · \(projectName)",
+                                isSelected: isSelected
                             )
                             .onTapGesture {
                                 withAnimation(.easeInOut(duration: 0.2)) {
-                                    store.selectedTab = .board
-                                    store.selectedSprintIndex = index
+                                    if let project = store.projects.first(where: { $0.id == sprint.projectId }) {
+                                        store.selectedProject = project
+                                        store.selectedSprint = sprint
+                                    }
                                 }
                             }
                         }
@@ -160,6 +166,7 @@ struct SidebarNavItem: View {
 struct SprintListItem: View {
     let color: Color
     let text: String
+    var isSelected: Bool = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -168,18 +175,30 @@ struct SprintListItem: View {
                 .frame(width: 7, height: 7)
             Text(text)
                 .font(.system(size: 11))
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(isSelected ? color : .white.opacity(0.5))
+                .lineLimit(1)
+            Spacer()
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: 5)
+                .fill(isSelected ? color.opacity(0.12) : Color.clear)
+        )
+        .contentShape(Rectangle())
     }
 }
 
 // MARK: - Project List Item
 struct ProjectListItem: View {
+    @EnvironmentObject var store: AppStore
     let project: Project
     var isSelected: Bool = false
     @State private var isHovered = false
+
+    private var backlogCount: Int {
+        store.kanbanTasks.filter { $0.projectId == project.id && $0.status == .backlog }.count
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -191,10 +210,14 @@ struct ProjectListItem: View {
                 .foregroundColor(isSelected ? project.color : (isHovered ? .white.opacity(0.8) : .white.opacity(0.5)))
                 .lineLimit(1)
             Spacer()
-            if !project.version.isEmpty {
-                Text("v\(project.version)")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.2))
+            if backlogCount > 0 {
+                Text("\(backlogCount)")
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.4))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(Color.white.opacity(0.08))
+                    .cornerRadius(8)
             }
         }
         .padding(.horizontal, 10)

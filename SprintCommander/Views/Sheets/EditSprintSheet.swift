@@ -1,65 +1,37 @@
 import SwiftUI
 
-struct AddSprintSheet: View {
+struct EditSprintSheet: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) var dismiss
 
+    let sprint: Sprint
     let project: Project
 
-    @State private var name = ""
-    @State private var goal = ""
-    @State private var targetVersion = ""
-    @State private var startDate = Date()
-    @State private var endDate = Calendar.current.date(byAdding: .weekOfYear, value: 2, to: Date()) ?? Date()
-    @State private var duration = 2 // weeks
+    @State private var name: String
+    @State private var goal: String
+    @State private var targetVersion: String
+    @State private var startDate: Date
+    @State private var endDate: Date
+    @State private var duration: Int
 
-    private var suggestedName: String {
-        let existing = store.sprints(for: project.id)
-        let number = existing.count + 1
-        return "Sprint \(number)"
-    }
+    init(sprint: Sprint, project: Project) {
+        self.sprint = sprint
+        self.project = project
+        _name = State(initialValue: sprint.name)
+        _goal = State(initialValue: sprint.goal)
+        _targetVersion = State(initialValue: sprint.targetVersion)
+        _startDate = State(initialValue: sprint.startDate)
+        _endDate = State(initialValue: sprint.endDate)
 
-    /// 프로젝트 버전 또는 기존 스프린트 targetVersion 중 가장 높은 버전에서 patch +1
-    private var suggestedVersion: String {
-        var versions: [String] = []
-        if !project.version.isEmpty {
-            versions.append(project.version)
-        }
-        for sprint in store.sprints(for: project.id) {
-            if !sprint.targetVersion.isEmpty {
-                versions.append(sprint.targetVersion)
-            }
-        }
-        guard let highest = versions.max(by: { compareVersions($0, $1) }) else {
-            return "1.0.0"
-        }
-        return incrementPatch(highest)
-    }
-
-    private func compareVersions(_ a: String, _ b: String) -> Bool {
-        let ap = a.split(separator: ".").compactMap { Int($0) }
-        let bp = b.split(separator: ".").compactMap { Int($0) }
-        let count = max(ap.count, bp.count)
-        for i in 0..<count {
-            let av = i < ap.count ? ap[i] : 0
-            let bv = i < bp.count ? bp[i] : 0
-            if av != bv { return av < bv }
-        }
-        return false
-    }
-
-    private func incrementPatch(_ version: String) -> String {
-        var parts = version.split(separator: ".").compactMap { Int($0) }
-        while parts.count < 3 { parts.append(0) }
-        parts[2] += 1
-        return parts.map { String($0) }.joined(separator: ".")
+        let weeks = max(1, Calendar.current.dateComponents([.weekOfYear], from: sprint.startDate, to: sprint.endDate).weekOfYear ?? 2)
+        _duration = State(initialValue: min(weeks, 4))
     }
 
     var body: some View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("새 스프린트")
+                Text("스프린트 편집")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.white)
                 Spacer()
@@ -87,7 +59,7 @@ struct AddSprintSheet: View {
                             Text(project.name)
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.white.opacity(0.8))
-                            Text("새 스프린트를 추가합니다")
+                            Text("스프린트를 편집합니다")
                                 .font(.system(size: 11))
                                 .foregroundColor(.white.opacity(0.35))
                         }
@@ -98,7 +70,7 @@ struct AddSprintSheet: View {
                     .cornerRadius(10)
 
                     // Sprint name
-                    FormField(label: "스프린트 이름", text: $name, placeholder: suggestedName)
+                    FormField(label: "스프린트 이름", text: $name, placeholder: sprint.name)
 
                     // Goal
                     VStack(alignment: .leading, spacing: 6) {
@@ -119,7 +91,7 @@ struct AddSprintSheet: View {
                     }
 
                     // Target version
-                    FormField(label: "목표 버전", text: $targetVersion, placeholder: suggestedVersion)
+                    FormField(label: "목표 버전", text: $targetVersion, placeholder: project.version)
 
                     // Duration picker
                     VStack(alignment: .leading, spacing: 6) {
@@ -169,20 +141,6 @@ struct AddSprintSheet: View {
                                 .labelsHidden()
                         }
                     }
-
-                    // Info
-                    HStack(spacing: 8) {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 11))
-                            .foregroundColor(Color(hex: "4FACFE").opacity(0.6))
-                        Text("스프린트를 만든 후 태스크를 배정할 수 있습니다")
-                            .font(.system(size: 11))
-                            .foregroundColor(.white.opacity(0.3))
-                    }
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(hex: "4FACFE").opacity(0.06))
-                    .cornerRadius(8)
                 }
                 .padding(20)
             }
@@ -193,22 +151,18 @@ struct AddSprintSheet: View {
             HStack {
                 Spacer()
                 GhostButton(title: "취소") { dismiss() }
-                PrimaryButton(title: "생성", icon: "flag.fill") {
-                    let sprintName = name.isEmpty ? suggestedName : name
-                    let sprint = Sprint(
-                        projectId: project.id,
-                        name: sprintName,
-                        goal: goal,
-                        startDate: startDate,
-                        endDate: endDate,
-                        isActive: true,
-                        targetVersion: targetVersion
-                    )
-                    store.addSprint(sprint)
+                PrimaryButton(title: "저장", icon: "checkmark") {
+                    var updated = sprint
+                    updated.name = name.isEmpty ? sprint.name : name
+                    updated.goal = goal
+                    updated.targetVersion = targetVersion
+                    updated.startDate = startDate
+                    updated.endDate = endDate
+                    store.updateSprint(updated)
                     store.addActivity(ActivityItem(
-                        icon: "🏁",
-                        text: "스프린트가 생성되었습니다",
-                        highlightedText: sprintName,
+                        icon: "✏️",
+                        text: "스프린트가 수정되었습니다",
+                        highlightedText: updated.name,
                         time: "방금 전"
                     ))
                     dismiss()
@@ -218,8 +172,5 @@ struct AddSprintSheet: View {
         }
         .frame(width: 420, height: 560)
         .background(Color(hex: "1A1A2E"))
-        .onAppear {
-            targetVersion = suggestedVersion
-        }
     }
 }

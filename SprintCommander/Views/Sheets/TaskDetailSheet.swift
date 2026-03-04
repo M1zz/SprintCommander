@@ -44,6 +44,7 @@ struct TaskDetailSheet: View {
                         DetailRow(label: "우선순위", value: "\(task.priority.icon) \(task.priority.label)", color: task.priority.color)
                         DetailRow(label: "스토리 포인트", value: "\(task.storyPoints) SP", color: .white)
                         DetailRow(label: "담당자", value: task.assignee, color: task.assigneeColor)
+                        DetailRow(label: "스프린트", value: task.sprint.isEmpty ? "미배정" : task.sprint, color: task.sprint.isEmpty ? .white.opacity(0.3) : Color(hex: "4FACFE"))
                     }
                     .padding(16)
                     .background(Color.white.opacity(0.04))
@@ -103,6 +104,48 @@ struct TaskDetailSheet: View {
                         }
                     }
 
+                    // Sprint assignment
+                    let availableSprints = store.availableSprintsForTask(task)
+                    if !availableSprints.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("스프린트 배정")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.5))
+                            HStack(spacing: 6) {
+                                // 미배정 버튼
+                                Button {
+                                    store.assignTaskToSprint(taskId: task.id, sprintName: nil)
+                                    dismiss()
+                                } label: {
+                                    Text("미배정")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundColor(task.sprint.isEmpty ? .white : .white.opacity(0.4))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(task.sprint.isEmpty ? Color.gray.opacity(0.5) : Color.gray.opacity(0.1))
+                                        .cornerRadius(6)
+                                }
+                                .buttonStyle(.plain)
+
+                                ForEach(availableSprints) { sprint in
+                                    Button {
+                                        store.assignTaskToSprint(taskId: task.id, sprintName: sprint.name)
+                                        dismiss()
+                                    } label: {
+                                        Text(sprint.name)
+                                            .font(.system(size: 11, weight: .medium))
+                                            .foregroundColor(task.sprint == sprint.name ? .white : Color(hex: "4FACFE"))
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 6)
+                                            .background(task.sprint == sprint.name ? Color(hex: "4FACFE").opacity(0.5) : Color(hex: "4FACFE").opacity(0.1))
+                                            .cornerRadius(6)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                    }
+
                     Spacer()
 
                     // Delete button
@@ -132,7 +175,7 @@ struct TaskDetailSheet: View {
                 .padding(20)
             }
         }
-        .frame(width: 400, height: 520)
+        .frame(width: 400, height: 580)
         .background(Color(hex: "1A1A2E"))
     }
 }

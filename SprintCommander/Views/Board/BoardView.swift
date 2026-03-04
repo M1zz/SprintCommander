@@ -2,7 +2,7 @@ import SwiftUI
 
 struct BoardView: View {
     @EnvironmentObject var store: AppStore
-    @State private var statusFilter: TaskItem.TaskStatus? = nil
+    @State private var statusFilter: TaskItem.TaskStatus? = .inProgress
     @State private var priorityFilter: TaskItem.Priority? = nil
     @State private var sprintFilter: String? = nil
     @State private var selectedTask: TaskItem? = nil
@@ -53,8 +53,8 @@ struct BoardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             PageHeader(
-                title: "내 태스크",
-                subtitle: "전체 \(store.kanbanTasks.count)개 태스크 · \(store.kanbanTasks.filter { $0.status == .done }.count)개 완료",
+                title: "진행 중",
+                subtitle: "\(store.kanbanTasks.filter { $0.status == .inProgress }.count)개 진행 중 · 전체 \(store.kanbanTasks.count)개",
                 primaryAction: "태스크",
                 primaryIcon: "plus",
                 onPrimary: { showAddTask = true }
@@ -146,9 +146,13 @@ struct BoardView: View {
                             ProjectTaskGroup(
                                 project: group.project,
                                 tasks: group.tasks,
+                                sprintsForTask: { store.availableSprintsForTask($0) },
                                 onTaskTap: { selectedTask = $0 },
                                 onStatusChange: { task, newStatus in
                                     store.updateTaskStatus(id: task.id, newStatus: newStatus)
+                                },
+                                onSprintAssign: { task, sprintName in
+                                    store.assignTaskToSprint(taskId: task.id, sprintName: sprintName)
                                 },
                                 onDelete: { task in
                                     store.deleteTask(id: task.id)
@@ -210,8 +214,10 @@ private struct StatusChip: View {
 private struct ProjectTaskGroup: View {
     let project: Project?
     let tasks: [TaskItem]
+    var sprintsForTask: ((TaskItem) -> [Sprint])? = nil
     var onTaskTap: ((TaskItem) -> Void)? = nil
     var onStatusChange: ((TaskItem, TaskItem.TaskStatus) -> Void)? = nil
+    var onSprintAssign: ((TaskItem, String?) -> Void)? = nil
     var onDelete: ((TaskItem) -> Void)? = nil
 
     var body: some View {
@@ -253,13 +259,40 @@ private struct ProjectTaskGroup: View {
                 TaskRow(task: task, projectColor: project?.color ?? .gray)
                     .onTapGesture { onTaskTap?(task) }
                     .contextMenu {
-                        ForEach(TaskItem.TaskStatus.allCases, id: \.self) { newStatus in
-                            Button {
-                                onStatusChange?(task, newStatus)
-                            } label: {
-                                Label(newStatus.rawValue, systemImage: newStatus == .done ? "checkmark.circle" : "arrow.right.circle")
+                        Section("상태 변경") {
+                            ForEach(TaskItem.TaskStatus.allCases, id: \.self) { newStatus in
+                                Button {
+                                    onStatusChange?(task, newStatus)
+                                } label: {
+                                    Label(newStatus.rawValue, systemImage: newStatus == .done ? "checkmark.circle" : "arrow.right.circle")
+                                }
                             }
                         }
+
+                        let availableSprints = sprintsForTask?(task) ?? []
+                        if !availableSprints.isEmpty {
+                            Menu("스프린트 배정") {
+                                ForEach(availableSprints) { sprint in
+                                    Button {
+                                        onSprintAssign?(task, sprint.name)
+                                    } label: {
+                                        HStack {
+                                            Text(sprint.name)
+                                            if task.sprint == sprint.name {
+                                                Image(systemName: "checkmark")
+                                            }
+                                        }
+                                    }
+                                }
+                                if !task.sprint.isEmpty {
+                                    Divider()
+                                    Button("스프린트 해제") {
+                                        onSprintAssign?(task, nil)
+                                    }
+                                }
+                            }
+                        }
+
                         Divider()
                         Button(role: .destructive) {
                             onDelete?(task)

@@ -29,6 +29,7 @@
 		AA000100000000000000000D /* EditProjectSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000100000000000000000D /* EditProjectSheet.swift */; };
 		AA000100000000000000000E /* ProjectSprintListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000100000000000000000E /* ProjectSprintListView.swift */; };
 		AA000100000000000000000F /* AddSprintSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000100000000000000000F /* AddSprintSheet.swift */; };
+		AA0001000000000000000010 /* EditSprintSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001000000000000000010 /* EditSprintSheet.swift */; };
 		B5013B0D5A9041499EFC53DF /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30CD9741F3A4CB4827E742C /* AnalyticsView.swift */; };
 		BE82F823BD724A8986CD8FC9 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ECAE577EA0C4D98B1FFE925 /* AppStore.swift */; };
 		FF5A9D08DC9840C393263976 /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 599AC764F7A04E63B3691653 /* BoardView.swift */; };
@@ -61,6 +62,7 @@
 		BB000100000000000000000A /* SprintCommander.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SprintCommander.entitlements; sourceTree = "<group>"; };
 		BB000100000000000000000E /* ProjectSprintListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSprintListView.swift; sourceTree = "<group>"; };
 		BB000100000000000000000F /* AddSprintSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddSprintSheet.swift; sourceTree = "<group>"; };
+		BB0001000000000000000010 /* EditSprintSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditSprintSheet.swift; sourceTree = "<group>"; };
 		C30CD9741F3A4CB4827E742C /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
 		E7F5D979E8C444A3972E85EC /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedComponents.swift; sourceTree = "<group>"; };
 		FAA80D2DB4304A29BBDF6D8B /* SprintCommanderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SprintCommanderApp.swift; sourceTree = "<group>"; };
@@ -192,6 +194,7 @@
 				BB000100000000000000000D /* EditProjectSheet.swift */,
 				BB0001000000000000000002 /* AddTaskSheet.swift */,
 				BB000100000000000000000F /* AddSprintSheet.swift */,
+				BB0001000000000000000010 /* EditSprintSheet.swift */,
 				BB0001000000000000000003 /* TaskDetailSheet.swift */,
 				BB0001000000000000000004 /* ProjectDetailSheet.swift */,
 				BB0001000000000000000005 /* SearchOverlay.swift */,
@@ -297,6 +300,7 @@
 				AA000100000000000000000D /* EditProjectSheet.swift in Sources */,
 				AA000100000000000000000E /* ProjectSprintListView.swift in Sources */,
 				AA000100000000000000000F /* AddSprintSheet.swift in Sources */,
+				AA0001000000000000000010 /* EditSprintSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
