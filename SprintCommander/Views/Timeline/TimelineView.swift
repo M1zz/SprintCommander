@@ -209,6 +209,12 @@ struct SprintGanttView: View {
                                     // Today line
                                     TodayLine(x: todayX)
                                         .allowsHitTesting(false)
+
+                                    // Invisible scroll anchor at today's position
+                                    Color.clear
+                                        .frame(width: 1, height: 1)
+                                        .offset(x: max(0, todayX - 1))
+                                        .id("todayMarker")
                                 }
                                 .frame(width: contentWidth)
                             }
@@ -216,9 +222,9 @@ struct SprintGanttView: View {
                         .id("ganttContent")
                     }
                     .onAppear {
-                        // 오늘 위치로 스크롤 (약간 왼쪽 여유)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            proxy.scrollTo("ganttContent", anchor: UnitPoint(x: max(0, todayX / (contentWidth + 200) - 0.1), y: 0))
+                        // 오늘 마커로 스크롤 (오늘이 화면 왼쪽 30% 지점에 오도록)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            proxy.scrollTo("todayMarker", anchor: UnitPoint(x: 0.3, y: 0))
                         }
                     }
                 }
